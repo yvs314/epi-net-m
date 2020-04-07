@@ -72,7 +72,7 @@ for j=1:N %for every time step
     D3 = diag(v1) ;
     U = diag(u) ;
     
-    
+%YS: fractional input assumed (\beta_i is not divided by pop_i)
     %Compute the time series
     Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) 
     -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
@@ -90,6 +90,6 @@ t      = linspace(tSpan(1),tSpan(2),tSteps);
 nAgent =  m;
 nState =  d;
 sEvo = X(1:2:nAgent*nState,:);
-IEvo = X(2:2:nAgent*nState,:);
+iEvo = X(2:2:nAgent*nState,:);
 Trajectory(sEvo,t,'SIR-Susceptible','fig/SIR-Susceptible')
-Trajectory(IEvo,t,'SIR-Infected','fig/SIR-Infected')
+Trajectory(iEvo,t,'SIR-Infected','fig/SIR-Infected')
