@@ -5,7 +5,6 @@
 
 %
 %% Clear the workspace
-
 clc ;
 clear all
 close all
@@ -31,19 +30,40 @@ X = zeros(d*m,N+1) ; %states time series YS: What?
 % Load network data
 %DATA = load('data/10000000-AP-flights-BTS-2019.dat');
 %the daily passengers, like the yearly but divided by 365
-DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
-%% System Data
+%% Data input block: read the flight data and the initial conditions
+%read the inital values & info on them,
+%a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name}
+tInitialValInfo = readtable("data/init-20-v3.csv");
+%make a population vector bN out of its 3rd column N_i
+bN = table2array(tInitialValInfo(:,3));
+%read the absolute S_i and I_i
+X0_absolute = table2array(tInitialValInfo(:,[4,5]));
+%now make a fractional version: s_i = S_i / I_i, etc.
+X0_frac = X0_absolute ./ bN;
 
-%A = zeros(m,m); %load the contact network here
+%TODO: cut out as a function
+%re-shape X0_frac from [20x2] into column vector [40x1]
+%of the form [s1;i1;s2;i2...sN;iN]
+tXa=X0_frac';
+X_0 = tXa([1:numel(tXa)])';
+%tXa([1:numel(tXa)])'
+%X0 = transpose(X0_frac)([1:numel(X0_frac)]);
+
+%% just read the flight data
+DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
+
+%% System Data
+%let us first test the no-travel case
+A = zeros(m,m);
 %A = ones(m,m);
-A = DATA/norm(DATA, 'inf')*100; 
-v_forDiag = ones(20,1) %20x1, column vector
+%A = DATA/norm(DATA, 'inf')*100; 
+v_forDiag = ones(20,1); %20x1, column vector
 %make sure A's diagonal elements are mostly 1
 %YS: note that I HAET this idea, I'd rather have a separate term for a pop's own attack rate
-A = A+diag(v_forDiag)
+A = A+diag(v_forDiag);
 %X_0 = ones(d*m,1) ; %load initial states at all nodes
 %YS:don't get it. X_0 should be 2x20, no?
-X_0 = load("data/init-20.dat");
+%X_0 = load("data/init-20.dat");
 %% Control Parameters
 
 u = zeros(1,m) ; %load the control here
@@ -91,5 +111,6 @@ nAgent =  m;
 nState =  d;
 sEvo = X(1:2:nAgent*nState,:);
 iEvo = X(2:2:nAgent*nState,:);
+
 Trajectory(sEvo,t,'SIR-Susceptible','fig/SIR-Susceptible')
 Trajectory(iEvo,t,'SIR-Infected','fig/SIR-Infected')
