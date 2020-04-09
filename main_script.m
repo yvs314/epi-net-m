@@ -29,7 +29,7 @@ beta = 1/2.5 ; %infectious rate at each node
 X = zeros(d*m,N+1) ; %states time series YS: What?
 %YS: above must be S_i and I_i for every step
 % Load network data
-%DATA = load('data/10000000-AP-flights-BoTS-2019.dat');
+%DATA = load('data/10000000-AP-flights-BTS-2019.dat');
 %the daily passengers, like the yearly but divided by 365
 DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
 %% System Data
