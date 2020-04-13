@@ -25,11 +25,8 @@ d = 2 ;  %dimension of the states at each node
 
 gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
-X = zeros(d*m,N+1) ; %states time series YS: What?
-%YS: above must be S_i and I_i for every step
-% Load network data
-%DATA = load('data/10000000-AP-flights-BTS-2019.dat');
-%the daily passengers, like the yearly but divided by 365
+X = zeros(d*m,N+1) ; %states time series 
+
 %% Data input block: read the flight data and the initial conditions
 %read the inital values & info on them,
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name}
@@ -41,13 +38,9 @@ X0_absolute = table2array(tInitialValInfo(:,[4,5]));
 %now make a fractional version: s_i = S_i / I_i, etc.
 X0_frac = X0_absolute ./ bN;
 
-%TODO: cut out as a function
 %re-shape X0_frac from [20x2] into column vector [40x1]
 %of the form [s1;i1;s2;i2...sN;iN]
-tXa=X0_frac';
-X_0 = tXa([1:numel(tXa)])';
-%tXa([1:numel(tXa)])'
-%X0 = transpose(X0_frac)([1:numel(X0_frac)]);
+X_0 = flattenRowMjr(X0_frac);
 
 %% just read the flight data
 DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
@@ -114,3 +107,11 @@ iEvo = X(2:2:nAgent*nState,:);
 
 Trajectory(sEvo,t,'SIR-Susceptible','fig/SIR-Susceptible')
 Trajectory(iEvo,t,'SIR-Infected','fig/SIR-Infected')
+
+%% aux: Flatten Row-Major,
+% turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
+% in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
+function Xout = flattenRowMjr(Xin)
+   tXin = Xin';
+   Xout = tXin([1:numel(tXin)]);
+end
