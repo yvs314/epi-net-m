@@ -1,6 +1,6 @@
 %% Scirpt by Shuang Gao March 27, 2020
 % Function: Illustrating the figures. 
-% 
+% Change 1, YS, 2020-04-13: re-wrote with switch expression 
 
 function Trajectory(zApp,t,titleName,figName)
 % Assume zApp rows are state, columns are time steps, zApp has the same
@@ -14,14 +14,17 @@ xlabel('time (s)'),ylabel('node'), zlabel('value')
 view(19,31)
 grid on
 
-    if nargin == 3
+switch nargin
+    
+    case 3
         title(sprintf('%s', titleName));
-    end
-
-    if nargin == 4 
+    
+    case 4
       title(sprintf('%s', titleName));  
       set(hfig3DTra, 'Units','inch','Position',[2 8 4 3],'PaperUnits', 'inch','PaperPosition',[0 8 4 3] ); 
       print(sprintf('%s', figName),'-depsc');
-    end
+
+    %case 5   
+end
 
 end
