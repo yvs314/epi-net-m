@@ -12,7 +12,7 @@ close all
 
 tic
 %Time Discretization Parameters
-%T = 2;          %continuous time duration
+%TODO: move on to steps per day
 T = 2;          %continuous time duration (30 days)
 N = 1000 ;       %number of time steps
 dt = T/N ;      % time step size (unifrom)
@@ -50,13 +50,11 @@ DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
 A = zeros(m,m);
 %A = ones(m,m);
 %A = DATA/norm(DATA, 'inf')*100; 
-v_forDiag = ones(20,1); %20x1, column vector
+v_forDiag = ones(m,1); %[m\times 1], column vector
 %make sure A's diagonal elements are mostly 1
 %YS: note that I HAET this idea, I'd rather have a separate term for a pop's own attack rate
-A = A+diag(v_forDiag);
-%X_0 = ones(d*m,1) ; %load initial states at all nodes
-%YS:don't get it. X_0 should be 2x20, no?
-%X_0 = load("data/init-20.dat");
+A = purgeDiag(A)+diag(v_forDiag);
+
 %% Control Parameters
 
 u = zeros(1,m) ; %load the control here
@@ -114,4 +112,10 @@ Trajectory(iEvo,t,'SIR-Infected','fig/SIR-Infected')
 function Xout = flattenRowMjr(Xin)
    tXin = Xin';
    Xout = tXin([1:numel(tXin)]);
+end
+
+%% aux: Purge Diagonal
+% make sure the diagonal is all zeros
+function Aout = purgeDiag(Ain)
+    Aout = Ain - diag(diag(Ain));
 end
