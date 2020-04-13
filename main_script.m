@@ -98,11 +98,18 @@ tSpan = [0,T];
 tSteps = N+1;
 t      = linspace(tSpan(1),tSpan(2),tSteps);
 
+%% Analysis and output
 nAgent =  m;
 nState =  d;
 sEvo = X(1:2:nAgent*nState,:);
 iEvo = X(2:2:nAgent*nState,:);
 
+%Figures are written into ./figDirName
+figDirName = 'fig';
+if(~exist(figDirName,'dir'))
+    mkdir(figDirName);
+end
+%TODO: refit Trajectory calls to use figDirName
 Trajectory(sEvo,t,'SIR-Susceptible','fig/SIR-Susceptible')
 Trajectory(iEvo,t,'SIR-Infected','fig/SIR-Infected')
 
