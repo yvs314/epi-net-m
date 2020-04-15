@@ -1,6 +1,7 @@
 %% Scirpt by Shuang Gao March 27, 2020
 % Function: Illustrating the figures. 
 % Change 1, YS, 2020-04-13: re-wrote with switch expression 
+% Change 2, YS, 2020-04-15: added line color parameter
 
 function Trajectory(zApp,t,lColor,titleName,figName)
 % Assume zApp rows are state, columns are time steps, zApp has the same
