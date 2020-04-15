@@ -85,7 +85,7 @@ for j=1:N %for every time step
     
 %YS: fractional input assumed (\beta_i is not divided by pop_i)
     %Compute the time series
-    Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) 
+    Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
     -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
     
     for h=1:(d*m)
