@@ -2,6 +2,7 @@
 % Function: Illustrating the figures. 
 % Change 1, YS, 2020-04-13: re-wrote with switch expression 
 % Change 2, YS, 2020-04-15: added line color parameter
+% Change 3, YS, 2020-04-15: moved the invariants outside the switch 
 
 function Trajectory(zApp,t,lColor,titleName,figName)
 % Assume zApp rows are state, columns are time steps, zApp has the same
@@ -14,18 +15,14 @@ plot3(t,nodes,zApp(:,:),'-','MarkerSize',1.5,'LineWidth',0.1, 'Color',lColor);
 xlabel('time (days)'),ylabel('node'), zlabel('value')
 view(19,31)
 grid on
+title(sprintf('%s', titleName));
+set(hfig3DTra, 'Units','inch','Position',[2 8 4 3],'PaperUnits', 'inch','PaperPosition',[0 8 4 3] ); 
 
 switch nargin
-    
-    case 4
-        title(sprintf('%s', titleName));
-    
-    case 5
-      title(sprintf('%s', titleName));  
-      set(hfig3DTra, 'Units','inch','Position',[2 8 4 3],'PaperUnits', 'inch','PaperPosition',[0 8 4 3] ); 
-      print(sprintf('%s', figName),'-depsc');
 
-    %case 5   
+    case 5
+      print(figName,'-depsc');
+  
 end
 
 end
