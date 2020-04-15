@@ -1,6 +1,7 @@
-# Matlab temporary files #
+# Matlab and other temporary files #
 #######################
 *.m~
+*.swp
 
 # Figures and Pictures #
 ######################
