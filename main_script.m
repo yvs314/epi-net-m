@@ -103,6 +103,7 @@ nAgent =  m;
 nState =  d;
 sEvo = X(1:2:nAgent*nState,:);
 iEvo = X(2:2:nAgent*nState,:);
+rEvo = ones(size(sEvo)) - sEvo - iEvo;
 
 %Figures are written into ./figDirName
 figDirName = 'fig';
@@ -112,6 +113,7 @@ end
 %TODO: refit Trajectory calls to use figDirName
 Trajectory(sEvo,t,'b','SIR-Susceptible','fig/SIR-Susceptible')
 Trajectory(iEvo,t,'r','SIR-Infected','fig/SIR-Infected')
+Trajectory(rEvo,t,'m','SIR-Removed','fig/SIR-Removed')
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
