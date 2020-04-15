@@ -110,8 +110,8 @@ if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
 %TODO: refit Trajectory calls to use figDirName
-Trajectory(sEvo,t,'SIR-Susceptible','fig/SIR-Susceptible')
-Trajectory(iEvo,t,'SIR-Infected','fig/SIR-Infected')
+Trajectory(sEvo,t,'b','SIR-Susceptible','fig/SIR-Susceptible')
+Trajectory(iEvo,t,'r','SIR-Infected','fig/SIR-Infected')
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
