@@ -29,9 +29,12 @@ gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
 %% Read the Initial Values (inc. node number)
+iValPath="data/init-2-first.csv"; %where do we keep the IVs,
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
-tInitialVals = readtable("data/init-20-v3.csv");
+iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
+
+tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
 %make a population vector bN out of tIVs' 3rd column N_i
 bN = table2array(tInitialVals(:,3));
@@ -45,7 +48,7 @@ X0_frac = X0_absolute ./ bN;
 X_0 = flattenRowMjr(X0_frac);
 
 %% Read the Coupling Data (daily passengers) / dbg: set to no-travel
-%DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
+%DATA = load(iFlugPath);
 %A = DATA/norm(DATA, 'inf')*100; 
 A = zeros(nodeNum,nodeNum);
 v_forDiag = ones(nodeNum,1); %[m\times 1], column vector
