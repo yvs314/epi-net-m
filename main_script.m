@@ -1,5 +1,6 @@
-% Authorship: Shuang Gao and Rinel Foguen
-% vandalized by Yaroslav Salii
+% Networked SIR simulator
+
+% Authorship: Shuang Gao, Rinel Foguen, and Yaroslav Salii
 % This code depends on Trajectory.m for ploting Folder data for storing data 
 % Folder /fig for saving the figures
 % Folder /data is for loading and saving data
@@ -7,25 +8,30 @@
 %
 %% Clear the workspace
 clc ; clear all; close all;
-%% System Parameters
+%% Set the System Parameters
 
 tic
-%Time Discretization Parameters
-%TODO: move on to steps per day
+
+% Set the number of "non-terminal" compartments
+% i.e., the number of all but the final R (recovered/removed) compartment
+nodeDim = 2 ;  %number of states at each node (node's dimension)
+         % first dimension is s, the fraction of susceptible
+         % second dimension is i, the fraction of infected
+
+% Set time horizon: [t_0, tFin]
 % t_0 = 0, %time starts at 0
 tFin = 2;          %end time (finite horizon); say, 30 days
+
+%Time Discretization Parameters
+%TODO: move on to steps per day
 nSteps = 1000 ;       %number of time steps
 dt = tFin/nSteps ;      % time step size (unifrom)
 
 %Model Parameters
 nodeNum = 20 ; % number of nodes in the network
-nodeDim = 2 ;  %number of states at each node (node's dimension)
-         % first dimension is number of susceptible
-         % second dimension is number of infected
 
 gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
-X = zeros(nodeDim*nodeNum,nSteps+1) ; %states time series 
 
 %% Data input block: read the flight data and the initial conditions
 %read the inital values & info on them,
@@ -55,14 +61,15 @@ v_forDiag = ones(nodeNum,1); %[m\times 1], column vector
 %YS: note that I HAET this idea, I'd rather have a separate term for a pop's own attack rate
 A = purgeDiag(A)+diag(v_forDiag);
 
-%% Control Parameters
+%% Set The Control Parameters
 
 u = zeros(1,nodeNum) ; %load the control here
-%% Dynamic Simulation
+%% Define the Dynamics, set the Initial Values
 
-%initializing the time series
+% initialize the node states' time series X with zeros at all time steps
+X = zeros(nodeDim*nodeNum,nSteps+1) ;
+% set the *initial conditions*
 X(:,1) = X_0; 
-
 
 %Build linear drift term YS:What?
 D1 = zeros(nodeDim,nodeDim) ; 
@@ -73,6 +80,7 @@ D2 = zeros(nodeDim,nodeDim) ;
 D2(1,2) = -1 ;
 D2(2,2) = 1 ;
 
+%% Run the Dynamic Simulation
 for j=1:nSteps %for every time step
     
     % Build the diagonal matrix with suspected states only
@@ -83,7 +91,6 @@ for j=1:nSteps %for every time step
     D3 = diag(v1) ;
     U = diag(u) ;
     
-%YS: fractional input assumed (\beta_i is not divided by pop_i)
     %Compute the time series
     %Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
     %     -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
@@ -99,11 +106,13 @@ for j=1:nSteps %for every time step
     
 end
 toc
+
+%% Analysis and output
+% prep the time for graphing
 tSpan = [0,tFin];
 tSteps = nSteps+1;
 t      = linspace(tSpan(1),tSpan(2),tSteps);
 
-%% Analysis and output
 nAgent =  nodeNum;
 nState =  nodeDim;
 sEvo = X(1:2:nAgent*nState,:);
