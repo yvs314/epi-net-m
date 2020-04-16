@@ -9,7 +9,6 @@
 clc ; clear all; close all;
 %% Set/Read the System Parameters
 
-tic
 % Set the number of "non-terminal" compartments
 % i.e., the number of all but the final R (recovered/removed) compartment
 nodeDim = 2 ;  %number of states at each node (node's dimension)
@@ -74,7 +73,8 @@ D2 = zeros(nodeDim,nodeDim) ;
 D2(1,2) = -1 ;
 D2(2,2) = 1 ;
 
-%% Run the Dynamic Simulation
+%% Run and Time the Dynamic Simulation
+tic
 for j=1:nSteps %for every time step
     
     % Build the diagonal matrix with suspected states only
