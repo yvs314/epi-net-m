@@ -4,14 +4,12 @@
 % This code depends on Trajectory.m for ploting Folder data for storing data 
 % Folder /fig for saving the figures
 % Folder /data is for loading and saving data
-
 %
 %% Clear the workspace
 clc ; clear all; close all;
-%% Set the System Parameters
+%% Set/Read the System Parameters
 
 tic
-
 % Set the number of "non-terminal" compartments
 % i.e., the number of all but the final R (recovered/removed) compartment
 nodeDim = 2 ;  %number of states at each node (node's dimension)
@@ -28,30 +26,27 @@ nSteps = 1000 ;       %number of time steps
 dt = tFin/nSteps ;      % time step size (unifrom)
 
 %Model Parameters
-nodeNum = 20 ; % number of nodes in the network
-
 gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
-%% Data input block: read the flight data and the initial conditions
-%read the inital values & info on them,
-%a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name}
+%% Read the Initial Values (inc. node number)
+%a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
+%each row defines a node
 tInitialVals = readtable("data/init-20-v3.csv");
-%make a population vector bN out of its 3rd column N_i
+nodeNum = size(tInitialVals,1); %as many nodes as there are rows
+%make a population vector bN out of tIVs' 3rd column N_i
 bN = table2array(tInitialVals(:,3));
 %read the absolute S_i and I_i
 X0_absolute = table2array(tInitialVals(:,[4,5]));
-%now make a fractional version: s_i = S_i / I_i, etc.
+%now make a fractional version: s_i = S_i / N_i, etc.
 X0_frac = X0_absolute ./ bN;
 
-%re-shape X0_frac from [20x2] into column vector [40x1]
-%of the form [s1;i1;s2;i2...sN;iN]
+%re-shape X0_frac from [n\times2] into column vector [2n\times1]
+%of the form [s1;i1;s2;i2...s_n;i_n]
 X_0 = flattenRowMjr(X0_frac);
 
-%% just read the flight data
+%% Read the Coupling Data (daily passengers)
 DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
-
-%% System Data
 %let us first test the no-travel case
 A = zeros(nodeNum,nodeNum);
 %A = ones(m,m);
@@ -62,10 +57,9 @@ v_forDiag = ones(nodeNum,1); %[m\times 1], column vector
 A = purgeDiag(A)+diag(v_forDiag);
 
 %% Set The Control Parameters
-
 u = zeros(1,nodeNum) ; %load the control here
-%% Define the Dynamics, set the Initial Values
 
+%% Define the Dynamics, set the Initial Values
 % initialize the node states' time series X with zeros at all time steps
 X = zeros(nodeDim*nodeNum,nSteps+1) ;
 % set the *initial conditions*
