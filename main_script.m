@@ -1,13 +1,12 @@
-%% Authorship: Shuang Gao and Rinel Foguen
+% Authorship: Shuang Gao and Rinel Foguen
 % vandalized by Yaroslav Salii
 % This code depends on Trajectory.m for ploting Folder data for storing data 
 % Folder /fig for saving the figures
+% Folder /data is for loading and saving data
 
 %
 %% Clear the workspace
-clc ;
-clear all
-close all
+clc ; clear all; close all;
 %% System Parameters
 
 tic
@@ -85,8 +84,13 @@ for j=1:N %for every time step
     
 %YS: fractional input assumed (\beta_i is not divided by pop_i)
     %Compute the time series
-    Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
-    -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
+    %Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
+    %     -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
+     
+    Z =  kron(eye(m),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ...
+         -  dt*beta*kron( (U*D3*A) , D2 ) ;  
+     % .* is element-wise multiplication 
+     % we are using matrix multiplication here
     
     for h=1:(d*m)
         X(h,j+1) = X(h,j) +  Z(h,:)*X(:,j) ;
