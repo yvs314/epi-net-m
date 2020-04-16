@@ -44,15 +44,12 @@ X0_frac = X0_absolute ./ bN;
 %of the form [s1;i1;s2;i2...s_n;i_n]
 X_0 = flattenRowMjr(X0_frac);
 
-%% Read the Coupling Data (daily passengers)
-DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
-%let us first test the no-travel case
-A = zeros(nodeNum,nodeNum);
-%A = ones(m,m);
+%% Read the Coupling Data (daily passengers) / dbg: set to no-travel
+%DATA = load("data/10000000-AP-daily-flights-BTS-2019.dat");
 %A = DATA/norm(DATA, 'inf')*100; 
+A = zeros(nodeNum,nodeNum);
 v_forDiag = ones(nodeNum,1); %[m\times 1], column vector
 %make sure A's diagonal elements are mostly 1
-%YS: note that I HAET this idea, I'd rather have a separate term for a pop's own attack rate
 A = purgeDiag(A)+diag(v_forDiag);
 
 %% Set The Control Parameters
@@ -86,13 +83,8 @@ for j=1:nSteps %for every time step
     U = diag(u) ;
     
     %Compute the time series
-    %Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
-    %     -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
-     
     Z =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ...
          -  dt*beta*kron( (U*D3*A) , D2 ) ;  
-     % .* is element-wise multiplication 
-     % we are using matrix multiplication here
     
     for h=1:(nodeDim*nodeNum)
         X(h,j+1) = X(h,j) +  Z(h,:)*X(:,j) ;
