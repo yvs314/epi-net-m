@@ -1,5 +1,5 @@
 % Networked SIR simulator
-
+%
 % Authorship: Shuang Gao, Rinel Foguen, and Yaroslav Salii
 % This code depends on Trajectory.m for ploting Folder data for storing data 
 % Folder /fig for saving the figures
