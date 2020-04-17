@@ -74,7 +74,7 @@ D2(2,2) = 1 ;
 
 for j=1:N %for every time step
     
-    % Build the diagonal matrix with suspected states only
+%     Build the diagonal matrix with suspected states only
 %     v1 = zeros(1,m) ;
 %    
 %     for k=1:2:(d*m) %What?
@@ -101,7 +101,7 @@ for j=1:N %for every time step
     U   = diag(u) ;
     
     Z   =  kron(eye(m),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) -  dt*beta*kron( (U*D3*A) , D2 ) ;
-    X(:,j+1) = X(:,j) +  Z*X(:,j) ;
+    X(:,j+1) = X(:,j) +  Z*X(:,j);
 end
 toc
 tSpan = [0,T];
