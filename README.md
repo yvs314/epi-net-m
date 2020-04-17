@@ -9,4 +9,4 @@ Simulation Tools for Networked SIR+
 
 3. Admire the produced figures, which you can find in the `./fig` directory after running the script.
 
-Update with a branch SG
+Update with a branch SG Test
