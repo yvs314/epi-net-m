@@ -12,8 +12,8 @@ clc ; clear all; close all;
 tic
 %Time Discretization Parameters
 %TODO: move on to steps per day
-T = 2;          %continuous time duration (30 days)
-N = 1000 ;       %number of time steps
+T = 60;          %continuous time duration (30 days)
+N = 100 ;       %number of time steps
 dt = T/N ;      % time step size (unifrom)
 
 %Model Parameters
@@ -75,27 +75,33 @@ D2(2,2) = 1 ;
 for j=1:N %for every time step
     
     % Build the diagonal matrix with suspected states only
-    v1 = zeros(1,m) ;
-    for k=1:2:(d*m) %What?
-        v1 = X(k,j) ;
-    end
-    D3 = diag(v1) ;
-    U = diag(u) ;
+%     v1 = zeros(1,m) ;
+%    
+%     for k=1:2:(d*m) %What?
+%         v1 = X(k,j) ;
+%     end
+% 
+%     D3 = diag(v1) ;
+%     U = diag(u) ;
+%     % 
+%     
+% %%YS: fractional input assumed (\beta_i is not divided by pop_i)
+%     %Compute the time series
+%     Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
+%          -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
+%        
+%     for h=1:(d*m)
+%         X(h,j+1) = X(h,j) +  Z(h,:)*X(:,j) ;
+%     end
+
+% Correct implementation
+    % pick S
+    v1  = kron(eye(m),[1,0])* X(:,j);
+    D3  = diag(v1);
+    U   = diag(u) ;
     
-%YS: fractional input assumed (\beta_i is not divided by pop_i)
-    %Compute the time series
-    %Z =  kron(eye(m),D1).*dt +  dt.*beta.*kron( (D3.*A) , D2 ) ...
-    %     -  dt.*beta.*kron( (U.*D3.*A) , D2 ) ;
-     
-    Z =  kron(eye(m),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ...
-         -  dt*beta*kron( (U*D3*A) , D2 ) ;  
-     % .* is element-wise multiplication 
-     % we are using matrix multiplication here
-    
-    for h=1:(d*m)
-        X(h,j+1) = X(h,j) +  Z(h,:)*X(:,j) ;
-    end
-    
+    Z   =  kron(eye(m),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) -  dt*beta*kron( (U*D3*A) , D2 ) ;
+    X(:,j+1) = X(:,j) +  Z*X(:,j) ;
 end
 toc
 tSpan = [0,T];
@@ -118,6 +124,8 @@ end
 Trajectory(sEvo,t,'b','SIR-Susceptible','fig/SIR-Susceptible')
 Trajectory(iEvo,t,'r','SIR-Infected','fig/SIR-Infected')
 Trajectory(rEvo,t,'m','SIR-Removed','fig/SIR-Removed')
+Trajectory(rEvo+iEvo+sEvo,t,'k','Total','fig/SIR-Total')
+
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
