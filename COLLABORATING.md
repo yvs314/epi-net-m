@@ -3,7 +3,8 @@ Lemme describe (1) code and commit style and (2) how to properly push your work 
 ## Code and *commit* style
 1. Please write meaningful commit messages, say, “Updated script.m” is worse than “Fixed a few typos in comments”. 
 If you fix a bug, an *extended description* is most welcome, to make your fix more specific.
-Here's what Randall Munroe's [take](https://xkcd.com/1296/) on it:
+Here's Randall Munroe's [take](https://xkcd.com/1296/) on it:
+
 ![uts](https://imgs.xkcd.com/comics/git_commit.png)
 
 
