@@ -53,9 +53,10 @@ X_0 = flattenRowMjr(X0_frac);
 %DATA = load(iFlugPath);
 %A = DATA/norm(DATA, 'inf')*100; 
 A = zeros(nodeNum,nodeNum);
-v_forDiag = ones(nodeNum,1); %[m\times 1], column vector
-%make sure A's diagonal elements are mostly 1
-A = purgeDiag(A)+diag(v_forDiag);
+%here's a test for 2x2
+%A  = [ 1  0; 1e-6 1];
+%make sure A's diagonal elements are exactly 1
+A = purgeDiag(A)+diag(ones(nodeNum,1));
 
 %% Set The Control Parameters
 u = zeros(1,nodeNum) ; %load the control here
