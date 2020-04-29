@@ -84,7 +84,8 @@ for j=1:nSteps %for every time step
     v1  = kron(eye(nodeNum),[1,0])* X(:,j);
     D3  = diag(v1);
     U   = diag(u) ;  
-    Z   =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) -  dt*beta*kron( (U*D3*A) , D2 ) ;
+    Z   =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ... 
+        -  dt*beta*kron( (U*D3*A) , D2 ) ;
     X(:,j+1) = X(:,j) +  Z*X(:,j);
 end
 toc
