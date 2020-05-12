@@ -21,7 +21,7 @@ tFin = 150;          %end time (finite horizon); say, 30 days
 
 %Time Discretization Parameters
 %TODO: move on to steps per day
-stepsPerDay=100;
+stepsPerDay=1;
 nSteps = tFin * stepsPerDay;       %number of time steps
 dt = tFin/nSteps ;      % time step size (unifrom)
 
