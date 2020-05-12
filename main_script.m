@@ -103,17 +103,26 @@ sEvo = X(1:2:nAgent*nState,:);
 iEvo = X(2:2:nAgent*nState,:);
 rEvo = ones(size(sEvo)) - sEvo - iEvo;
 
+%poor, hacky, self-repeating construction of absolute values
+S_Evo = sEvo .* bN;
+I_Evo = iEvo .* bN;
+R_Evo = rEvo .* bN;
 %Figures are written into ./figDirName
 figDirName = 'fig';
 if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
 %TODO: refit Trajectory calls to use figDirName
-Trajectory(sEvo,t,'b','SIR-Susceptible','fig/SIR-Susceptible')
-Trajectory(iEvo,t,'r','SIR-Infected','fig/SIR-Infected')
-Trajectory(rEvo,t,'m','SIR-Removed','fig/SIR-Removed')
-Trajectory(rEvo+iEvo+sEvo,t,'k','Total','fig/SIR-Total')
+Trajectory(sEvo,t,'b','frac-Susceptible','fig/frac-Susceptible')
+Trajectory(iEvo,t,'r','frac-Infected','fig/frac-Infected')
+Trajectory(rEvo,t,'m','frac-Removed','fig/frac-Removed')
+Trajectory(rEvo+iEvo+sEvo,t,'k','frac-Total','fig/frac-Total')
 
+%draw the absolutes as well, or don't
+%Trajectory(S_Evo,t,'b','abs-Susceptible','fig/abs-Susceptible')
+%Trajectory(I_Evo,t,'r','abs-Infected','fig/abs-Infected')
+%Trajectory(R_Evo,t,'m','abs-Removed','fig/abs-Removed')
+%Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total','fig/abs-Total')
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
