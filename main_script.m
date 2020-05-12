@@ -1,9 +1,9 @@
 % Networked SIR simulator
 %
 % Authorship: Shuang Gao, Rinel Foguen, and Yaroslav Salii
-% This code depends on Trajectory.m for ploting Folder data for storing data 
-% Folder /fig for saving the figures
-% Folder /data is for loading and saving data
+% This code depends on Trajectory.m for plotting 
+% ./fig is for saving the figures
+% ./data is for loading and saving initial values etc.
 %
 %% Clear the workspace
 clc ; clear all; close all;
@@ -54,7 +54,7 @@ X_0 = flattenRowMjr(X0_frac);
 %A = DATA/norm(DATA, 'inf')*100; 
 A = zeros(nodeNum,nodeNum);
 %here's a test for 2x2
-%A  = [ 1  0; 1e-6 1];
+A  = [ 1  0; 1e-6 1];
 %make sure A's diagonal elements are exactly 1
 A = purgeDiag(A)+diag(ones(nodeNum,1));
 
