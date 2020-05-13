@@ -97,10 +97,9 @@ tSpan = [0,tFin];
 tSteps = nSteps+1;
 t      = linspace(tSpan(1),tSpan(2),tSteps);
 
-nAgent =  nodeNum;
-nState =  nodeDim;
-sEvo = X(1:2:nAgent*nState,:);
-iEvo = X(2:2:nAgent*nState,:);
+%carve the s and i compartments' time series out of the whole X
+sEvo = X(1:2:nodeNum*nodeDim,:);
+iEvo = X(2:2:nodeNum*nodeDim,:);
 rEvo = ones(size(sEvo)) - sEvo - iEvo;
 
 %poor, hacky, self-repeating construction of absolute values
