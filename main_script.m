@@ -92,14 +92,22 @@ end
 toc
 
 %% Analysis and output
-% prep the time for graphing
+% prep the time steps as a series (row) for graphing
 tSpan = [0,tFin];
 tSteps = nSteps+1;
 t      = linspace(tSpan(1),tSpan(2),tSteps);
 
+%original X is [nodeDim \cdot nodeNum \times tSteps],
+%[ s_1(0) s_1(1) ... s_1(t_f) 
+% ; i_1(0) i_1(1) ... i_1(t_f)
+% ; s_2(0) s_2(1) ... s_2(t_f) 
+% ; i_2(0) i_2(1) ... i_2(t_f) ]
+
+% [s,i,r]Evo are [nodeNum \times tSteps], e.g., sEvo[k,t] is s_k(t)
 %carve the s and i compartments' time series out of the whole X
-sEvo = X(1:2:nodeNum*nodeDim,:);
-iEvo = X(2:2:nodeNum*nodeDim,:);
+sEvo = X(1:nodeDim:nodeNum*nodeDim,:);
+iEvo = X(2:nodeDim:nodeNum*nodeDim,:);
+% r is not computed initially, so we add it by "closure"
 rEvo = ones(size(sEvo)) - sEvo - iEvo;
 
 %poor, hacky, self-repeating construction of absolute values
