@@ -119,17 +119,21 @@ figDirName = 'fig';
 if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
-%TODO: refit Trajectory calls to use figDirName
-Trajectory(sEvo,t,'b','frac-Susceptible','fig/frac-Susceptible')
-Trajectory(iEvo,t,'r','frac-Infected','fig/frac-Infected')
-Trajectory(rEvo,t,'m','frac-Removed','fig/frac-Removed')
-Trajectory(rEvo+iEvo+sEvo,t,'k','frac-Total','fig/frac-Total')
 
-%draw the absolutes as well, or don't
-%Trajectory(S_Evo,t,'b','abs-Susceptible','fig/abs-Susceptible')
-%Trajectory(I_Evo,t,'r','abs-Infected','fig/abs-Infected')
-%Trajectory(R_Evo,t,'m','abs-Removed','fig/abs-Removed')
-%Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total','fig/abs-Total')
+%SAMPLE call to figStacked
+%f = figStacked(t,sEvo(1,:) ...
+%                        ,iEvo(1,:) ...
+%                        ,rEvo(1,:) ...
+%                        ,tInitialVals.City_name(1));
+%allFigs = gobjects(1,nodeNum);
+f = tiledlayout(nodeNum,1);
+for thisNode = 1:nodeNum
+    nexttile
+    figStacked(t,sEvo(thisNode,:) ...
+                       ,iEvo(thisNode,:) ...
+                       ,rEvo(thisNode,:) ...
+                       ,tInitialVals.City_name(thisNode));
+end
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
