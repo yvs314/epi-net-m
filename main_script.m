@@ -35,8 +35,8 @@ beta = 1/2.5 ; %infectious rate at each node
 %% Read the Initial Values (inc. node number)
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
-iValPath="data/init-2-first.csv"; %where do we keep the IVs,
-iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
+iValPath="data/init-4-first.csv"; %where do we keep the IVs,
+%iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
 
 tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
