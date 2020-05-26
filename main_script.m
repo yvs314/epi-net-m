@@ -49,14 +49,10 @@ X0_frac = X0_absolute ./ bN;
 
 X_0 = flattenRowMjr(X0_frac);
 
-%% Read the Coupling Data (daily passengers) / dbg: set to no-travel
-%DATA = load(iFlugPath);
-%A = DATA/norm(DATA, 'inf')*100; 
-A = zeros(nodeNum,nodeNum);
-%here's a test for 2x2
-A  = [ 1  0; 1e-6 1];
-%make sure A's diagonal elements are exactly 1
-A = purgeDiag(A)+diag(ones(nodeNum,1));
+%% Set the Coupling Data (daily passengers) / dbg: set to no-travel or eps-one
+%DATA = load(iFlugPath); %daily passengers, from a file
+%A = eye(nodeNum); %no connection
+A = mkEpsOneMx(nodeNum,1e-6); % epsilon-one full connectivity
 
 %% Set The Control Parameters
 u = zeros(1,nodeNum) ; %load the control here
@@ -147,4 +143,10 @@ end
 % make sure the diagonal is all zeros
 function Aout = purgeDiag(Ain)
     Aout = Ain - diag(diag(Ain));
+end
+
+%% aux: Make Epsilon-One Coupling Matrix
+% primitive coupling: \epsilon\in[0,1] off-diagonal, 1 on diagonal
+function Aout = mkEpsOneMx(size, eps)
+    Aout= purgeDiag(repmat(eps,size))+eye(size);   
 end
