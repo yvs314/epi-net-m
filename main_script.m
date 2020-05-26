@@ -113,18 +113,14 @@ rEvo = ones(size(sEvo)) - sEvo - iEvo;
 S_Evo = sEvo .* bN;
 I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
-%Figures are written into ./figDirName
+
+%Figures are meant to be  written into ./figDirName; make sure it exists
 figDirName = 'fig';
 if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
 
-%SAMPLE call to figStacked
-%f = figStacked(t,sEvo(1,:) ...
-%                        ,iEvo(1,:) ...
-%                        ,rEvo(1,:) ...
-%                        ,tInitialVals.City_name(1));
-%allFigs = gobjects(1,nodeNum);
+%tile the stacked i+s+r per-node graphs 1\times nodeNum
 f = tiledlayout(nodeNum,1);
 for thisNode = 1:nodeNum
     nexttile
