@@ -1,10 +1,13 @@
-% Networked SIR simulator
+%% Networked SIR simulator
 %
 % Authorship: Shuang Gao, Rinel Foguen, and Yaroslav Salii
-% This code depends on Trajectory.m for plotting 
-% ./fig is for saving the figures
-% ./data is for loading and saving initial values etc.
-%
+% 
+% Plotting facilities: 
+    %Trajectory.m (SG) for 3D overview
+    %figStacked.m (YS) for per-node stacked i+s+r 
+% Directories:
+    %./fig is for saving the figures (not tracked by git)
+    %./data is for initial values etc. (instance collection)
 %% Clear the workspace
 clc ; clear all; close all;
 %% Set/Read the System Parameters
