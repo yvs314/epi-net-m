@@ -1,0 +1,5 @@
+AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name
+1,ATL,420003,420002,1,0,Atlanta
+2,BOS,617594,617594,0,0,Boston
+3,CLT,731424,731424,0,0,Charlotte
+4,DEN,600158,600158,0,0,Denver
