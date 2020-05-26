@@ -119,7 +119,7 @@ if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
 
-
+%% Plot the 2D Stacked Per-Node i+s+r (all fractional)
 f =  tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
 for thisNode = 1:nodeNum
     nexttile
@@ -128,6 +128,18 @@ for thisNode = 1:nodeNum
                        ,rEvo(thisNode,:) ...
                        ,tInitialVals.City_name(thisNode));
 end
+
+%% Plot the 3D absolute evolution
+%fAbs= tiledlayout('flow');
+%nexttile
+f3S = Trajectory(S_Evo,t,'b','abs-Susceptible');
+%nexttile
+f3I = Trajectory(I_Evo,t,'r','abs-Infected');
+%nexttile
+f3R = Trajectory(R_Evo,t,'m','abs-Removed');
+
+%total population: debug usage only; must remain constant 
+%f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total');
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
