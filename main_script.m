@@ -33,9 +33,9 @@ gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
 %% Read the Initial Values (inc. node number)
-iValPath="data/init-2-first.csv"; %where do we keep the IVs,
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
+iValPath="data/init-2-first.csv"; %where do we keep the IVs,
 iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
 
 tInitialVals = readtable(iValPath);
@@ -113,15 +113,14 @@ rEvo = ones(size(sEvo)) - sEvo - iEvo;
 S_Evo = sEvo .* bN;
 I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
-
 %Figures are meant to be  written into ./figDirName; make sure it exists
 figDirName = 'fig';
 if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
 
-%tile the stacked i+s+r per-node graphs 1\times nodeNum
-f = tiledlayout(nodeNum,1);
+
+f =  tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
 for thisNode = 1:nodeNum
     nexttile
     figStacked(t,sEvo(thisNode,:) ...
