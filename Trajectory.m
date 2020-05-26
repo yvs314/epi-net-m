@@ -4,7 +4,7 @@
 % Change 2, YS, 2020-04-15: added line color parameter
 % Change 3, YS, 2020-04-15: moved the invariants outside the switch 
 
-function Trajectory(zApp,t,lColor,titleName,figName)
+function [hfig3DTra] = Trajectory(zApp,t,lColor,titleName,figName)
 % Assume zApp rows are state, columns are time steps, zApp has the same
 % dimesion at t
 
