@@ -36,7 +36,7 @@ beta = 1/2.5 ; %infectious rate at each node
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
 iValPath="data/init-4-first.csv"; %where do we keep the IVs,
-%iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
+iFlugPath="data/flug-4-first.dat"; %where do we keep daily passengers
 
 tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
@@ -120,7 +120,7 @@ if(~exist(figDirName,'dir'))
 end
 
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
-f =  tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
+fStacked =  tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
 for thisNode = 1:nodeNum
     nexttile
     figStacked(t,sEvo(thisNode,:) ...
@@ -130,13 +130,15 @@ for thisNode = 1:nodeNum
 end
 
 %% Plot the 3D absolute evolution
+%prep the nodes/APs labels for the plots
+nodeLabels = table2array(tInitialVals(:,7))';
 %fAbs= tiledlayout('flow');
 %nexttile
-f3S = Trajectory(S_Evo,t,'b','abs-Susceptible');
+f3S = Trajectory(S_Evo,t,'b','abs-Susceptible',nodeLabels);
 %nexttile
-f3I = Trajectory(I_Evo,t,'r','abs-Infected');
+f3I = Trajectory(I_Evo,t,'r','abs-Infected',nodeLabels);
 %nexttile
-f3R = Trajectory(R_Evo,t,'m','abs-Removed');
+f3R = Trajectory(R_Evo,t,'m','abs-Removed',nodeLabels);
 
 %total population: debug usage only; must remain constant 
 %f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total');
