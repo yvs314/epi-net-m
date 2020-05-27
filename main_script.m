@@ -120,7 +120,10 @@ if(~exist(figDirName,'dir'))
 end
 
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
-fStacked =  tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
+% make a figure object for these tiled per-node stacked plots
+fStacked = figure('name','Stacked Per-Node i+s+r, fractional');
+% start tiling
+tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
 for thisNode = 1:nodeNum
     nexttile
     figStacked(t,sEvo(thisNode,:) ...
@@ -130,18 +133,21 @@ for thisNode = 1:nodeNum
 end
 
 %% Plot the 3D absolute evolution
+% make a figure object for the tiled abs-all-nodes plots
+fAllNodesAbs = figure('name','Compt. Pops., All Nodes, Absolute Values.');
 %prep the nodes/APs labels for the plots
 nodeLabels = table2array(tInitialVals(:,7))';
-%fAbs= tiledlayout('flow');
-%nexttile
-f3S = Trajectory(S_Evo,t,'b','abs-Susceptible',nodeLabels);
-%nexttile
-f3I = Trajectory(I_Evo,t,'r','abs-Infected',nodeLabels);
-%nexttile
-f3R = Trajectory(R_Evo,t,'m','abs-Removed',nodeLabels);
-
-%total population: debug usage only; must remain constant 
-%f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total');
+%start tiling
+tiledlayout('flow');
+nexttile;
+fS=Trajectory(S_Evo,t,'b','abs-Susceptible',nodeLabels);
+nexttile;
+fI=Trajectory(I_Evo,t,'r','abs-Infected',nodeLabels);
+nexttile;
+fR=Trajectory(R_Evo,t,'m','abs-Removed',nodeLabels);
+nexttile;
+%total population: debug value only; assert constant populations
+f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total',nodeLabels);
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]

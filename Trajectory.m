@@ -4,14 +4,13 @@
 % Change 2, YS, 2020-04-15: added line color parameter
 % Change 3, YS, 2020-04-15: moved the invariants outside the switch 
 
-function [hfig3DTra] = Trajectory(zApp,t,lColor,plotTitle,nodeLabels)
+function [outFig] = Trajectory(zApp,t,lColor,plotTitle,nodeLabels)
 % Assume zApp rows are state, columns are time steps, zApp has the same
-% dimesion at t
+% dimension at t
 
-hfig3DTra = figure('name','3-D trajectory');
 Y   = diag(1:size(zApp,1))* ones(size(zApp,1),size(t,2));
 
-plot3(t,Y,zApp(:,:),'-','MarkerSize',1.5,'LineWidth',0.1, 'Color',lColor);
+outFig = plot3(t,Y,zApp(:,:),'-','MarkerSize',1.5,'LineWidth',0.1, 'Color',lColor);
 
 %yticks: space the nodes' curves
 yticks(1:size(zApp,1)); %set ticks to integers; effectively, city IDs
@@ -20,7 +19,7 @@ yticklabels(nodeLabels);
 
 
 %ylabel not necessary?
-xlabel('Time (days)'),ylabel('Node Names'), zlabel('Compartment Population');
+xlabel('Time (days)'),zlabel('Compartment Population');
 view(19,31);
 grid on;
 title(sprintf('%s', plotTitle));
