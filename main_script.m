@@ -1,10 +1,13 @@
-% Networked SIR simulator
+%% Networked SIR simulator
 %
 % Authorship: Shuang Gao, Rinel Foguen, and Yaroslav Salii
-% This code depends on Trajectory.m for plotting 
-% ./fig is for saving the figures
-% ./data is for loading and saving initial values etc.
-%
+% 
+% Plotting facilities: 
+    %Trajectory.m (SG) for 3D overview
+    %figStacked.m (YS) for per-node stacked i+s+r 
+% Directories:
+    %./fig is for saving the figures (not tracked by git)
+    %./data is for initial values etc. (instance collection)
 %% Clear the workspace
 clc ; clear all; close all;
 %% Set/Read the System Parameters
@@ -30,10 +33,10 @@ gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
 %% Read the Initial Values (inc. node number)
-iValPath="data/init-2-first.csv"; %where do we keep the IVs,
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
-iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
+iValPath="data/init-4-first.csv"; %where do we keep the IVs,
+%iFlugPath="data/flug-2-first.dat"; %where do we keep daily passengers
 
 tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
@@ -49,14 +52,10 @@ X0_frac = X0_absolute ./ bN;
 
 X_0 = flattenRowMjr(X0_frac);
 
-%% Read the Coupling Data (daily passengers) / dbg: set to no-travel
-%DATA = load(iFlugPath);
-%A = DATA/norm(DATA, 'inf')*100; 
-A = zeros(nodeNum,nodeNum);
-%here's a test for 2x2
-A  = [ 1  0; 1e-6 1];
-%make sure A's diagonal elements are exactly 1
-A = purgeDiag(A)+diag(ones(nodeNum,1));
+%% Set the Coupling Data (daily passengers) / dbg: set to no-travel or eps-one
+%DATA = load(iFlugPath); %daily passengers, from a file
+%A = eye(nodeNum); %no connection
+A = mkEpsOneMx(nodeNum,1e-6); % epsilon-one full connectivity
 
 %% Set The Control Parameters
 u = zeros(1,nodeNum) ; %load the control here
@@ -92,37 +91,55 @@ end
 toc
 
 %% Analysis and output
-% prep the time for graphing
+% prep the time steps as a series (row) for graphing
 tSpan = [0,tFin];
 tSteps = nSteps+1;
 t      = linspace(tSpan(1),tSpan(2),tSteps);
 
-nAgent =  nodeNum;
-nState =  nodeDim;
-sEvo = X(1:2:nAgent*nState,:);
-iEvo = X(2:2:nAgent*nState,:);
+%original X is [nodeDim \cdot nodeNum \times tSteps],
+%[ s_1(0) s_1(1) ... s_1(t_f) 
+% ; i_1(0) i_1(1) ... i_1(t_f)
+% ; s_2(0) s_2(1) ... s_2(t_f) 
+% ; i_2(0) i_2(1) ... i_2(t_f) ]
+
+% [s,i,r]Evo are [nodeNum \times tSteps], e.g., sEvo[k,t] is s_k(t)
+%carve the s and i compartments' time series out of the whole X
+sEvo = X(1:nodeDim:nodeNum*nodeDim,:);
+iEvo = X(2:nodeDim:nodeNum*nodeDim,:);
+% r is not computed initially, so we add it by "closure"
 rEvo = ones(size(sEvo)) - sEvo - iEvo;
 
 %poor, hacky, self-repeating construction of absolute values
 S_Evo = sEvo .* bN;
 I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
-%Figures are written into ./figDirName
+%Figures are meant to be  written into ./figDirName; make sure it exists
 figDirName = 'fig';
 if(~exist(figDirName,'dir'))
     mkdir(figDirName);
 end
-%TODO: refit Trajectory calls to use figDirName
-Trajectory(sEvo,t,'b','frac-Susceptible','fig/frac-Susceptible')
-Trajectory(iEvo,t,'r','frac-Infected','fig/frac-Infected')
-Trajectory(rEvo,t,'m','frac-Removed','fig/frac-Removed')
-Trajectory(rEvo+iEvo+sEvo,t,'k','frac-Total','fig/frac-Total')
 
-%draw the absolutes as well, or don't
-%Trajectory(S_Evo,t,'b','abs-Susceptible','fig/abs-Susceptible')
-%Trajectory(I_Evo,t,'r','abs-Infected','fig/abs-Infected')
-%Trajectory(R_Evo,t,'m','abs-Removed','fig/abs-Removed')
-%Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total','fig/abs-Total')
+%% Plot the 2D Stacked Per-Node i+s+r (all fractional)
+f =  tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
+for thisNode = 1:nodeNum
+    nexttile
+    figStacked(t,sEvo(thisNode,:) ...
+                       ,iEvo(thisNode,:) ...
+                       ,rEvo(thisNode,:) ...
+                       ,tInitialVals.City_name(thisNode));
+end
+
+%% Plot the 3D absolute evolution
+%fAbs= tiledlayout('flow');
+%nexttile
+f3S = Trajectory(S_Evo,t,'b','abs-Susceptible');
+%nexttile
+f3I = Trajectory(I_Evo,t,'r','abs-Infected');
+%nexttile
+f3R = Trajectory(R_Evo,t,'m','abs-Removed');
+
+%total population: debug usage only; must remain constant 
+%f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total');
 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
@@ -136,4 +153,10 @@ end
 % make sure the diagonal is all zeros
 function Aout = purgeDiag(Ain)
     Aout = Ain - diag(diag(Ain));
+end
+
+%% aux: Make Epsilon-One Coupling Matrix
+% primitive coupling: \epsilon\in[0,1] off-diagonal, 1 on diagonal
+function Aout = mkEpsOneMx(size, eps)
+    Aout= purgeDiag(repmat(eps,size))+eye(size);   
 end

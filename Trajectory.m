@@ -4,7 +4,7 @@
 % Change 2, YS, 2020-04-15: added line color parameter
 % Change 3, YS, 2020-04-15: moved the invariants outside the switch 
 
-function Trajectory(zApp,t,lColor,titleName,figName)
+function [hfig3DTra] = Trajectory(zApp,t,lColor,titleName)
 % Assume zApp rows are state, columns are time steps, zApp has the same
 % dimesion at t
 
@@ -17,12 +17,5 @@ view(19,31)
 grid on
 title(sprintf('%s', titleName));
 set(hfig3DTra, 'Units','inch','Position',[2 8 4 3],'PaperUnits', 'inch','PaperPosition',[0 8 4 3] ); 
-
-switch nargin
-
-    case 5
-      print(figName,'-depsc');
-  
-end
 
 end
