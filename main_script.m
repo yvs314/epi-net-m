@@ -36,7 +36,7 @@ beta = 1/2.5 ; %infectious rate at each node
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
 iValPath="data/init-4-first.csv"; %where do we keep the IVs,
-iFlugPath="data/flug-4-first.dat"; %where do we keep daily passengers
+%iFlugPath="data/flug-4-first.dat"; %where do we keep daily passengers
 
 tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
@@ -55,7 +55,7 @@ X_0 = flattenRowMjr(X0_frac);
 %% Set the Coupling Data (daily passengers) / dbg: set to no-travel or eps-one
 %DATA = load(iFlugPath); %daily passengers, from a file
 %A = eye(nodeNum); %no connection
-A = mkEpsOneMx(nodeNum,1e-6); % epsilon-one full connectivity
+A = mkEpsOneMx(nodeNum,1e-4); % epsilon-one full connectivity
 
 %% Set The Control Parameters
 u = zeros(1,nodeNum) ; %load the control here
@@ -66,11 +66,13 @@ X = zeros(nodeDim*nodeNum,nSteps+1) ;
 % set the *initial conditions*
 X(:,1) = X_0; 
 
-%Build linear drift term YS:What?
-D1 = zeros(nodeDim,nodeDim) ; 
+%Build the Infected -> Removed term (the *linear* drift term)  
+% D1=[0 0;0 \gamma]
+D1 = zeros(nodeDim,nodeDim); 
 D1(2,2) = - gamma ;
 
-%Build the nonlinear drift term YS:What?
+%Build the Susceptible -> Infected term (the *nonlinear* drift term)
+% D2 = [0 -1; 0 1]
 D2 = zeros(nodeDim,nodeDim) ;
 D2(1,2) = -1 ;
 D2(2,2) = 1 ;
@@ -80,9 +82,9 @@ tic
 for j=1:nSteps %for every time step
 
 % Correct implementation
-    % pick S
-    v1  = kron(eye(nodeNum),[1,0])* X(:,j);
-    D3  = diag(v1);
+    %from X=[s_1(j) i_1(j) ... s_last(j) i_last(j)],
+    %pick just the susceptibles [s_1(j) ... s_last(j)], and diag() them
+    D3  = diag(kron(eye(nodeNum),[1,0])* X(:,j)); 
     U   = diag(u) ;  
     Z   =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ... 
         -  dt*beta*kron( (U*D3*A) , D2 ) ;
@@ -121,7 +123,7 @@ end
 
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
 % make a figure object for these tiled per-node stacked plots
-fStacked = figure('name','Stacked Per-Node i+s+r, fractional');
+fStacked = figure('name','Stacked Per-Node i+s+r, Fractional');
 % start tiling
 tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
 for thisNode = 1:nodeNum
@@ -134,7 +136,7 @@ end
 
 %% Plot the 3D absolute evolution
 % make a figure object for the tiled abs-all-nodes plots
-fAllNodesAbs = figure('name','Compt. Pops., All Nodes, Absolute Values.');
+fAllNodesAbs = figure('name','S, I, and R for All Nodes Together, Absolute Values.');
 %prep the nodes/APs labels for the plots
 nodeLabels = table2array(tInitialVals(:,7))';
 %start tiling
