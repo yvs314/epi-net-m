@@ -36,7 +36,7 @@ beta = 1/2.5 ; %infectious rate at each node
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
 iValPath="data/init-4-first.csv"; %where do we keep the IVs,
-%iFlugPath="data/flug-4-first.dat"; %where do we keep daily passengers
+iFlugPath="data/flug-4-first.dat"; %where do we keep daily passengers
 
 tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
@@ -151,6 +151,9 @@ nexttile;
 %total population: debug value only; assert constant populations
 f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total',nodeLabels);
 
+%% dumb export, CAVEAT: naming not automated yet 
+%exportgraphics(fStacked,'./fig/2-first-eps4-stacked.png')
+%exportgraphics(fAllNodesAbs,'./fig/2-first-eps4-overall.png')
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
