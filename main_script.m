@@ -42,24 +42,25 @@ gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
 %% Set the IO parameters: input instances and output figures' locations
-sep="-"; %use - to separate file name fields
-subSep="_"; %use _ to subdivide file name fields
+nSep="-"; %use - to separate file name fields
+nsubSep="_"; %use _ to subdivide file name fields
 IV_suff="init.csv"; 
 flug_suff="flug.dat";
 
-instDir="data"; %here be instances
+instDir="data"; %read the instances from here
 instName="first_4"; %do set the instance name
+
+iValPath=fullfile(instDir,instName+nSep+IV_suff); %path to the IVs
+iFlugPath=fullfile(instDir,instName+nSep+flug_suff); %path to the flight data, if any
 
 figDirName = "fig"; %write the figures here
 if(~exist(figDirName,"dir"))
     mkdir(figDirName); %make sure it exists
 end
 %% Read the Initial Values (inc. node number)
+
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
-iValPath="data/init-4-first.csv"; %where do we keep the IVs,
-iFlugPath="data/flug-4-first.dat"; %where do we keep daily passengers
-
 tInitialVals = readtable(iValPath);
 nodeNum = size(tInitialVals,1); %as many nodes as there are rows
 %make a population vector bN out of tIVs' 3rd column N_i
