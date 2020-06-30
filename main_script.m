@@ -95,10 +95,14 @@ X0_frac = X0_absolute ./ bN;
 
 X_0 = flattenRowMjr(X0_frac);
 
-%% Set the Coupling Data (daily passengers) / dbg: set to no-travel or eps-one
-DATA = load(iFlugPath); %daily passengers, from a file
-%A = eye(nodeNum); %no connection
-A = mkEpsOneMx(nodeNum,1e-4); % epsilon-one full connectivity
+%% Read/Set the Coupling Data
+if(useFlightData)  %read and process daily passengers
+    % must have city pops N=(N1,...,Nn) on the diagonal
+    A = purgeDiag(load(iFlugPath))+diag(bN);
+else
+    A = mkEpsOneMx(nodeNum,1e-4); % epsilon-one full connectivity
+   %A = eye(nodeNum); %no coupling, another debug variant
+end
 
 %% Set The Control Parameters
 u = zeros(1,nodeNum) ; %load the control here
