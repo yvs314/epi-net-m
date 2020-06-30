@@ -96,6 +96,7 @@ X0_frac = X0_absolute ./ bN;
 X_0 = flattenRowMjr(X0_frac);
 
 %% Read/Set the Coupling Data
+%CAVEAT: no symmetrization yet
 if(useFlightData)  %read and process daily passengers
     % must have city pops N=(N1,...,Nn) on the diagonal
     A = purgeDiag(load(iFlugPath))+diag(bN);
@@ -124,6 +125,13 @@ D2 = zeros(nodeDim,nodeDim) ;
 D2(1,2) = -1 ;
 D2(2,2) = 1 ;
 
+%if using (absolute) daily passengers
+if(useFlightData)
+    absCorr=diag(arrayfun(@(x) 1/x,bN));
+else
+    absCorr=eye(nodeNum);
+end
+
 %% Run and Time the Dynamic Simulation
 tic
 for j=1:nSteps %for every time step
@@ -131,7 +139,7 @@ for j=1:nSteps %for every time step
 % Correct implementation
     %from X=[s_1(j) i_1(j) ... s_last(j) i_last(j)],
     %pick just the susceptibles [s_1(j) ... s_last(j)], and diag() them
-    D3  = diag(kron(eye(nodeNum),[1,0])* X(:,j)); 
+    D3  = diag(kron(absCorr,[1,0])* X(:,j)); 
     U   = diag(u) ;  
     Z   =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ... 
         -  dt*beta*kron( (U*D3*A) , D2 ) ;
