@@ -8,6 +8,15 @@
 % Directories:
     %./fig is for saving the figures (not tracked by git)
     %./data is for initial values etc. (instance collection)
+% Naming conventions: outer separator "-" inner separator "_" 
+% Instances:    (with string $NAME and integer $SIZE)
+    % $NAME_$SIZE-init.csv holds initial conditions; 
+    % $NAME_$SIZE-flug.dat holds daily passengers matrix
+    %sample: first4-init.csv IVs, Atlanta, Boston, Charlotte, and Denver
+            %first4-flug.dat daily psg., Atlanta, Boston, Charlotte, and Denver
+%  Output figures: ($CPG:= [flug | eps-one] coupling type)
+    %$NAME_$SIZE-beta_$beta-gamma_$gamma-T_$tFinal-$CPG.$EXT
+    %$beta, $gamma, $tFinal are optional?
 %% Clear the workspace
 clc ; clear all; close all;
 %% Set/Read the System Parameters
@@ -32,6 +41,19 @@ dt = tFin/nSteps ;      % time step size (unifrom)
 gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
+%% Set the IO parameters: input instances and output figures' locations
+sep="-"; %use - to separate file name fields
+subSep="_"; %use _ to subdivide file name fields
+IV_suff="init.csv"; 
+flug_suff="flug.dat";
+
+instDir="data"; %here be instances
+instName="first_4"; %do set the instance name
+
+figDirName = "fig"; %write the figures here
+if(~exist(figDirName,"dir"))
+    mkdir(figDirName); %make sure it exists
+end
 %% Read the Initial Values (inc. node number)
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
 %each row defines a node
@@ -115,11 +137,6 @@ rEvo = ones(size(sEvo)) - sEvo - iEvo;
 S_Evo = sEvo .* bN;
 I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
-%Figures are meant to be  written into ./figDirName; make sure it exists
-figDirName = "fig";
-if(~exist(figDirName,"dir"))
-    mkdir(figDirName);
-end
 
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
 % make a figure object for these tiled per-node stacked plots
