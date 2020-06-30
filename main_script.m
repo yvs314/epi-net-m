@@ -116,16 +116,16 @@ S_Evo = sEvo .* bN;
 I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
 %Figures are meant to be  written into ./figDirName; make sure it exists
-figDirName = 'fig';
-if(~exist(figDirName,'dir'))
+figDirName = "fig";
+if(~exist(figDirName,"dir"))
     mkdir(figDirName);
 end
 
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
 % make a figure object for these tiled per-node stacked plots
-fStacked = figure('name','Stacked Per-Node i+s+r, Fractional');
+fStacked = figure("name","Stacked Per-Node i+s+r, Fractional");
 % start tiling
-tiledlayout('flow'); %built-in layout, aimes at 4:3 for the tiles
+tiledlayout("flow"); %built-in layout, aimes at 4:3 for the tiles
 for thisNode = 1:nodeNum
     nexttile
     figStacked(t,sEvo(thisNode,:) ...
@@ -136,24 +136,24 @@ end
 
 %% Plot the 3D absolute evolution
 % make a figure object for the tiled abs-all-nodes plots
-fAllNodesAbs = figure('name','S, I, and R for All Nodes Together, Absolute Values.');
+fAllNodesAbs = figure("name","S, I, and R for All Nodes Together, Absolute Values.");
 %prep the nodes/APs labels for the plots
 nodeLabels = table2array(tInitialVals(:,7))';
 %start tiling
-tiledlayout('flow');
+tiledlayout("flow");
 nexttile;
-fS=Trajectory(S_Evo,t,'b','abs-Susceptible',nodeLabels);
+fS=Trajectory(S_Evo,t,"b","abs-Susceptible",nodeLabels);
 nexttile;
-fI=Trajectory(I_Evo,t,'r','abs-Infected',nodeLabels);
+fI=Trajectory(I_Evo,t,"r","abs-Infected",nodeLabels);
 nexttile;
-fR=Trajectory(R_Evo,t,'m','abs-Removed',nodeLabels);
+fR=Trajectory(R_Evo,t,"m","abs-Removed",nodeLabels);
 nexttile;
 %total population: debug value only; assert constant populations
-f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,'k','abs-Total',nodeLabels);
+f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,"k","abs-Total",nodeLabels);
 
 %% dumb export, CAVEAT: naming not automated yet 
-%exportgraphics(fStacked,'./fig/2-first-eps4-stacked.png')
-%exportgraphics(fAllNodesAbs,'./fig/2-first-eps4-overall.png')
+%exportgraphics(fStacked,"./fig/2-first-eps4-stacked.png")
+%exportgraphics(fAllNodesAbs,"./fig/2-first-eps4-overall.png")
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
