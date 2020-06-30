@@ -15,11 +15,15 @@
     %sample: first4-init.csv IVs, Atlanta, Boston, Charlotte, and Denver
             %first4-flug.dat daily psg., Atlanta, Boston, Charlotte, and Denver
 %  Output figures: ($CPG:= [flug | eps-one] coupling type)
-    %$NAME_$SIZE-beta_$beta-gamma_$gamma-T_$tFinal-$CPG.$EXT
+    %$NAME_$SIZE-$CPG-beta_$beta-gamma_$gamma-T_$tFinal.$EXT
     %$beta, $gamma, $tFinal are optional?
 %% Clear the workspace
 clc ; clear all; close all;
 %% Set/Read the System Parameters
+
+% if false, use eps_one coupling
+% if true, read the daily passengers table
+useFlightData=false;
 
 % Set the number of "non-terminal" compartments
 % i.e., the number of all but the final R (recovered/removed) compartment
@@ -41,22 +45,38 @@ dt = tFin/nSteps ;      % time step size (unifrom)
 gamma = 1/8.3 ; %removed rate at each node
 beta = 1/2.5 ; %infectious rate at each node
 
-%% Set the IO parameters: input instances and output figures' locations
-nSep="-"; %use - to separate file name fields
-nsubSep="_"; %use _ to subdivide file name fields
-IV_suff="init.csv"; 
-flug_suff="flug.dat";
+%% Set the IO parameters: input instances
+fnSep="-"; %use - to separate file name fields
+fnSubSep="_"; %use _ to subdivide file name fields
+IV_suff="init.csv"; %all instances IVs end like this 
+flug_suff="flug.dat"; %all instances daily psgrs end like this
 
-instDir="data"; %read the instances from here
+instDir="data"; %read the instances from here;
 instName="first_4"; %do set the instance name
 
-iValPath=fullfile(instDir,instName+nSep+IV_suff); %path to the IVs
-iFlugPath=fullfile(instDir,instName+nSep+flug_suff); %path to the flight data, if any
+%TODO: add error if IVs not found
+iValPath=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
+iFlugPath=fullfile(instDir,instName+fnSep+flug_suff); %path to the flight data, if any
 
-figDirName = "fig"; %write the figures here
-if(~exist(figDirName,"dir"))
-    mkdir(figDirName); %make sure it exists
+%% Set the IO parameters: figure output location and naming
+figDir = "fig"; %write the figures here
+if(~exist(figDir,"dir"))
+    mkdir(figDir); %make sure it exists
 end
+
+% set the right coupling code
+nCPG="undef"; %init the coupling code; I'm scared of var init inside if block
+if (useFlightData)
+    nCPG = "flug";
+else
+    nCPG="eps_one";
+end
+%nCPG=(useFlightData):("flug"):("eps_one"); %default to epsilon-one coupling
+%brief: $NAME-$CPG-[STK|OVR].$ext STK for Stacked, OVR for Overview
+ofStackedPNG = fullfile(figDir,join([instName,nCPG,"STK"],fnSep)+".png");
+ofOverviewPNG = fullfile(figDir,join([instName,nCPG,"OVR"],fnSep)+".png");
+%$NAME_$SIZE-$CPG-beta_$beta-gamma_$gamma-T_$tFinal.$EXT
+
 %% Read the Initial Values (inc. node number)
 
 %a .CSV with the cols {AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name},
@@ -76,7 +96,7 @@ X0_frac = X0_absolute ./ bN;
 X_0 = flattenRowMjr(X0_frac);
 
 %% Set the Coupling Data (daily passengers) / dbg: set to no-travel or eps-one
-%DATA = load(iFlugPath); %daily passengers, from a file
+DATA = load(iFlugPath); %daily passengers, from a file
 %A = eye(nodeNum); %no connection
 A = mkEpsOneMx(nodeNum,1e-4); % epsilon-one full connectivity
 
@@ -170,8 +190,10 @@ nexttile;
 f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,"k","abs-Total",nodeLabels);
 
 %% dumb export, CAVEAT: naming not automated yet 
-%exportgraphics(fStacked,"./fig/2-first-eps4-stacked.png")
-%exportgraphics(fAllNodesAbs,"./fig/2-first-eps4-overall.png")
+exportgraphics(fStacked,ofStackedPNG)
+exportgraphics(fAllNodesAbs,ofOverviewPNG)
+%exportgraphics(fStacked,"./fig/2-first-eps4-stacked.png");
+%exportgraphics(fAllNodesAbs,"./fig/2-first-eps4-overall.png");
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
