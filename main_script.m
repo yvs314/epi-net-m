@@ -73,8 +73,8 @@ else
 end
 %nCPG=(useFlightData):("flug"):("eps_one"); %default to epsilon-one coupling
 %brief: $NAME-$CPG-[STK|OVR].$ext STK for Stacked, OVR for Overview
-ofStackedPNG = fullfile(figDir,join([instName,nCPG,"STK"],fnSep)+".png");
-ofOverviewPNG = fullfile(figDir,join([instName,nCPG,"OVR"],fnSep)+".png");
+pathOutFigStacked = fullfile(figDir,join([instName,nCPG,"STK"],fnSep));
+pathOutFigOverview = fullfile(figDir,join([instName,nCPG,"OVR"],fnSep));
 %$NAME_$SIZE-$CPG-beta_$beta-gamma_$gamma-T_$tFinal.$EXT
 
 %% Read the Initial Values (inc. node number)
@@ -189,11 +189,9 @@ nexttile;
 %total population: debug value only; assert constant populations
 f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,"k","abs-Total",nodeLabels);
 
-%% dumb export, CAVEAT: naming not automated yet 
-exportgraphics(fStacked,ofStackedPNG)
-exportgraphics(fAllNodesAbs,ofOverviewPNG)
-%exportgraphics(fStacked,"./fig/2-first-eps4-stacked.png");
-%exportgraphics(fAllNodesAbs,"./fig/2-first-eps4-overall.png");
+%% Figure export, default to png
+print(fStacked,pathOutFigStacked,'-dpng');
+print(fAllNodesAbs,pathOutFigOverview,'-dpng');
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
