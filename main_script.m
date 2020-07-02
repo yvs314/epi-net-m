@@ -5,25 +5,30 @@
 % Plotting facilities: 
     %Trajectory.m (SG) for 3D overview
     %figStacked.m (YS) for per-node stacked i+s+r 
-% Directories:
-    %./fig is for saving the figures (not tracked by git)
+% Directories: (set by $figDir and $instDir)
+    %./fig is for saving the figures (not tracked by git!)
     %./data is for initial values etc. (instance collection)
-% Naming conventions: outer separator "-" inner separator "_" 
+% Naming conventions: fields separated by "-" subfields by "_" 
 % Instances:    (with string $NAME and integer $SIZE)
     % $NAME_$SIZE-init.csv holds initial conditions; 
     % $NAME_$SIZE-flug.dat holds daily passengers matrix
     %sample: first4-init.csv IVs, Atlanta, Boston, Charlotte, and Denver
             %first4-flug.dat daily psg., Atlanta, Boston, Charlotte, and Denver
-%  Output figures: ($CPG:= [flug | eps-one] coupling type)
-    %$NAME_$SIZE-$CPG-beta_$beta-gamma_$gamma-T_$tFinal.$EXT
-    %$beta, $gamma, $tFinal are optional?
+%  Output figures: ($CPG: [flug | eps-one] coupling type, $TYPE:[OVR|STK] figure type)
+    %$NAME_$SIZE-$CPG-$TYPE.$EXT
+    %OVR: $NAME_$SIZE-$CPG-OVR.png All-nodes Overview (via Trajectory.m)
+    %STK: $NAME_$SIZE-$CPG-STK.png Stacked per-node i+s+r, all on one figure (via figStacked.m)
+%consider adding $beta, $gamma, $tFinal, and $stepsPerDay
 %% Clear the workspace
 clc ; clear all; close all;
 %% Set/Read the System Parameters
 
+%initial values must comply to the form $instName-init.csv
+instName="first_2"; %set the instance name
+
 % if false, use eps_one coupling
-% if true, read the daily passengers table
-useFlightData=false;
+% if true, read the daily passengers table from $instname-flug.dat
+useFlightData=true;
 
 % Set the number of "non-terminal" compartments
 % i.e., the number of all but the final R (recovered/removed) compartment
@@ -52,7 +57,6 @@ IV_suff="init.csv"; %all instances IVs end like this
 flug_suff="flug.dat"; %all instances daily psgrs end like this
 
 instDir="data"; %read the instances from here;
-instName="first_4"; %do set the instance name
 
 %TODO: add error if IVs not found
 iValPath=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
@@ -127,18 +131,21 @@ D2(2,2) = 1 ;
 
 %if using (absolute) daily passengers
 if(useFlightData)
+    %add division by each city's population
     absCorr=diag(arrayfun(@(x) 1/x,bN));
-else
+else %we use fractional "connection intensities", not absolute psg/day
+    %no need to divide by anything, just use the scalar 1 matrix
     absCorr=eye(nodeNum);
 end
 
 %% Run and Time the Dynamic Simulation
 tic
 for j=1:nSteps %for every time step
-
-% Correct implementation
+    %form the infection propagation and transport term D3:
     %from X=[s_1(j) i_1(j) ... s_last(j) i_last(j)],
-    %pick just the susceptibles [s_1(j) ... s_last(j)], and diag() them
+    %kron() picks every second one, the susceptibles [s_1(j) ... s_last(j)]
+    %if using *absolute passengers per day* (useFlightData=true)
+    %then we also divide each by the city population (see absCorr above)
     D3  = diag(kron(absCorr,[1,0])* X(:,j)); 
     U   = diag(u) ;  
     Z   =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ... 
