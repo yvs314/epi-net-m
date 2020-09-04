@@ -1,2 +1,2 @@
 data/by-tract/** filter=lfs diff=lfs merge=lfs -text
-*.ipynb
+*.ipynb data/by-tract/** filter=lfs diff=lfs merge=lfs -text
