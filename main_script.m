@@ -23,12 +23,20 @@
 clc ; clear all; close all;
 %% Set/Read the System Parameters
 
-%initial values must comply to the form $instName-init.csv
-instName="first_2"; %set the instance name
+%set the instance location
+%instDir="data/by-tract"; %by-tract are FluTE-derived, larger instances
+instDir="data"; %just the small airport-derived cases here
+
+%initial values instances have the form $instName-init.csv
+
+%set the instance name
+%instName="seattle_124"; %smalles of the FluTe-derived
+instName="first_4"; %toy 4-city AP-derived instance, Atlanta, Boston, Charlotteville, Denver
+
 
 % if false, use eps_one coupling
-% if true, read the daily passengers table from $instname-flug.dat
-useFlightData=true;
+% if true, read the daily passengers table from $instName-flug.dat
+useFlightData=false;
 
 % Set the number of "non-terminal" compartments
 % i.e., the number of all but the final R (recovered/removed) compartment
@@ -55,8 +63,6 @@ fnSep="-"; %use - to separate file name fields
 fnSubSep="_"; %use _ to subdivide file name fields
 IV_suff="init.csv"; %all instances IVs end like this 
 flug_suff="flug.dat"; %all instances daily psgrs end like this
-
-instDir="data"; %read the instances from here;
 
 %TODO: add error if IVs not found
 iValPath=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
@@ -179,18 +185,20 @@ I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
 
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
+%only so many fit on a tiled figure; 20 ok on my 13" display
+%but they can't reasonably be printed to a single .png, print at most 9
+maxTiles = 20;
 % make a figure object for these tiled per-node stacked plots
 fStacked = figure("name","Stacked Per-Node i+s+r, Fractional");
 % start tiling
 tiledlayout("flow"); %built-in layout, aimes at 4:3 for the tiles
-for thisNode = 1:nodeNum
+for thisNode = 1:min(maxTiles,nodeNum)
     nexttile
     figStacked(t,sEvo(thisNode,:) ...
                        ,iEvo(thisNode,:) ...
                        ,rEvo(thisNode,:) ...
-                       ,tInitialVals.City_name(thisNode));
+                       ,tInitialVals.(7)(thisNode));
 end
-
 %% Plot the 3D absolute evolution
 % make a figure object for the tiled abs-all-nodes plots
 fAllNodesAbs = figure("name","S, I, and R for All Nodes Together, Absolute Values.");
@@ -209,8 +217,12 @@ nexttile;
 f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,"k","abs-Total",nodeLabels);
 
 %% Figure export, default to png
-print(fStacked,pathOutFigStacked,'-dpng');
+%print the big picture
 print(fAllNodesAbs,pathOutFigOverview,'-dpng');
+%print the tiled stacked per-nodes if they fit
+if(nodeNum <= 9)
+    print(fStacked,pathOutFigStacked,'-dpng');
+end
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
