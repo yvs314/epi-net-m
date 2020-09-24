@@ -145,6 +145,7 @@ else %we use fractional "connection intensities", not absolute psg/day
 end
 
 %% Run and Time the Dynamic Simulation
+disp("Running the simulation");
 tic
 for j=1:nSteps %for every time step
     %form the infection propagation and transport term D3:
@@ -159,8 +160,10 @@ for j=1:nSteps %for every time step
     X(:,j+1) = X(:,j) +  Z*X(:,j);
 end
 toc
-
+disp("Numerics complete");
 %% Analysis and output
+disp("Prep for graphing");
+tic
 % prep the time steps as a series (row) for graphing
 tSpan = [0,tFin];
 tSteps = nSteps+1;
@@ -183,8 +186,10 @@ rEvo = ones(size(sEvo)) - sEvo - iEvo;
 S_Evo = sEvo .* bN;
 I_Evo = iEvo .* bN;
 R_Evo = rEvo .* bN;
-
+toc
 %% Plot the 2D Stacked Per-Node i+s+r (all fractional)
+disp("Plotting the 2D stacked per-node i+s+r");
+tic
 %only so many fit on a tiled figure; 20 ok on my 13" display
 %but they can't reasonably be printed to a single .png, print at most 9
 maxTiles = 20;
@@ -199,7 +204,10 @@ for thisNode = 1:min(maxTiles,nodeNum)
                        ,rEvo(thisNode,:) ...
                        ,tInitialVals.(7)(thisNode));
 end
+toc
 %% Plot the 3D absolute evolution
+disp("Plotting All-nodes S,I,R Trajectories");
+tic
 % make a figure object for the tiled abs-all-nodes plots
 fAllNodesAbs = figure("name","S, I, and R for All Nodes Together, Absolute Values.");
 %prep the nodes/APs labels for the plots
@@ -215,16 +223,27 @@ fR=Trajectory(R_Evo,t,"m","abs-Removed",nodeLabels);
 nexttile;
 %total population: debug value only; assert constant populations
 f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,"k","abs-Total",nodeLabels);
-
+toc
 %% Figure export, default to png
 %print the big picture
 print(fAllNodesAbs,pathOutFigOverview,'-dpng');
 %print the tiled stacked per-nodes (just the first maxTiles)
 print(fStacked,pathOutFigStacked,'-dpng');
 %% Time series export, to a .csv
+disp("Re-shaping the output");
+tic
 % intersperse sEvo,iEvo, and rEvo;
-%tmpA=[flattenRowMjr(sEvo)' flattenRowMjr(iEvo)' flattenRowMjr(rEvo)' ];
-% now cut 
+tmpA=[flattenRowMjr(sEvo)' flattenRowMjr(iEvo)' flattenRowMjr(rEvo)' ];
+% now cut, with nTicks=numel(0:tFin) being the number of time ticks 
+%[tmpA(1:wat,:) tmpA(wat+1:2*wat,:) tmpA(2*wat+1:3*wat,:) tmpA(3*wat+1:4*wat,:), ...]
+nTics=numel(0:tFin);
+outB = zeros(nTics,3*nodeNum); %preallocate the output
+for k = 1:nodeNum 
+    outB(1:nTics,3*(k-1)+1:3*k) =  tmpA( (k-1)*nTics +1:k*nTics,:);
+end
+toc
+%% dbf lf: for calling local functions from command line
+lf = localfunctions;
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
