@@ -219,16 +219,17 @@ f3All = Trajectory(S_Evo+I_Evo+R_Evo,t,"k","abs-Total",nodeLabels);
 %% Figure export, default to png
 %print the big picture
 print(fAllNodesAbs,pathOutFigOverview,'-dpng');
-%print the tiled stacked per-nodes if they fit
-if(nodeNum <= 9)
-    print(fStacked,pathOutFigStacked,'-dpng');
-end
+%print the tiled stacked per-nodes (just the first maxTiles)
+print(fStacked,pathOutFigStacked,'-dpng');
+%% Time series export, to a .csv
+% intersperse sEvo,iEvo, and rEvo;
+%tmpA=[flattenRowMjr(sEvo)' flattenRowMjr(iEvo)' flattenRowMjr(rEvo)' ];
+% now cut 
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
 function Xout = flattenRowMjr(Xin)
-   tXin = Xin';
-   Xout = tXin([1:numel(tXin)]);
+    Xout = reshape(Xin',1,numel(Xin));
 end
 
 %% aux: Purge Diagonal
