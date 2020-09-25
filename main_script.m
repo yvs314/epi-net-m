@@ -51,7 +51,7 @@ nodeDim = 2 ;  %number of states at each node (node's dimension)
 tFin = 150;          %end time, in days (finite horizon);
 
 %Time Discretization Parameters
-stepsPerDay=1; %must be at least 1; better be integer
+stepsPerDay=2; %must be at least 1; better be integer
 nSteps = tFin * stepsPerDay;       %number of time steps
 dt = tFin/nSteps ;      % time step size (uniform)
 
@@ -236,21 +236,31 @@ print(fStacked,pathOutFigStacked,'-dpng');
 %% Time series export, to a .csv
 disp("Re-shaping the output time series");
 tic
-%generate the output tables
+%generate the all-ticks output tables
 outTabFrac=mkOutTable(sEvo,iEvo,rEvo);
 outTabAbs=mkOutTable(S_Evo,I_Evo,R_Evo);
 toc
 
+tic
+%generate the per-day output tables 
+outTabFracDaily=mkOutTable(sEvo(:,1:stepsPerDay:end) ...
+                        ,iEvo(:,1:stepsPerDay:end) ...
+                        ,rEvo(:,1:stepsPerDay:end));
+
+outTabAbsDaily=mkOutTable(S_Evo(:,1:stepsPerDay:end) ...
+                        ,I_Evo(:,1:stepsPerDay:end) ...
+                        ,R_Evo(:,1:stepsPerDay:end));
+toc
 %write the output tables to .csv
-writematrix(outTabFrac,strcat(pathOutTabFrac,'.csv'))
-writematrix(outTabAbs,strcat(pathOutTabAbs,'.csv'))
+writematrix(outTabFracDaily,strcat(pathOutTabFrac,'.csv'))
+writematrix(outTabAbsDaily,strcat(pathOutTabAbs,'.csv'))
 
 %% dbf lf: for calling local functions from command line
 lf = localfunctions;
 %% aux: Make Output Table
 %TODO: switch the output display from ticks to days, using stepsPerDay
 % takes the 3 compartments' time series, e.g. s_1,\dots,s_n[0,tFin], i, r
-% and puts them into a table of the form: \forall t, 
+% and puts them into a table of the form: \forall t
 % t, s_1(t), i_1(t), r_1(t), ... , s_n(t), i_1(t), r_n(t)
 % NB!: assume time series are of the size [nodeNum\times nSteps]
 function outT = mkOutTable(S, I, R)
