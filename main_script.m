@@ -18,6 +18,8 @@
     %$NAME_$SIZE-$CPG-$TYPE.$EXT
     %OVR: $NAME_$SIZE-$CPG-OVR.png All-nodes Overview (via Trajectory.m)
     %STK: $NAME_$SIZE-$CPG-STK.png Stacked per-node i+s+r, all on one figure (via figStacked.m)
+%  Output tables: $NAME_$SIZE-$CPG-[abs | frac]-out.csv
+
 %consider adding $beta, $gamma, $tFinal, and $stepsPerDay
 %% Clear the workspace
 clc ; clear all; close all;
@@ -46,13 +48,12 @@ nodeDim = 2 ;  %number of states at each node (node's dimension)
 
 % Set time horizon: [t_0, tFin]
 % t_0 = 0, %time starts at 0
-tFin = 150;          %end time (finite horizon); say, 30 days
+tFin = 150;          %end time, in days (finite horizon);
 
 %Time Discretization Parameters
-%TODO: move on to steps per day
-stepsPerDay=1;
+stepsPerDay=1; %must be at least 1; better be integer
 nSteps = tFin * stepsPerDay;       %number of time steps
-dt = tFin/nSteps ;      % time step size (unifrom)
+dt = tFin/nSteps ;      % time step size (uniform)
 
 %Model Parameters
 gamma = 1/8.3 ; %removed rate at each node
@@ -68,10 +69,10 @@ flug_suff="flug.dat"; %all instances daily psgrs end like this
 iValPath=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
 iFlugPath=fullfile(instDir,instName+fnSep+flug_suff); %path to the flight data, if any
 
-%% Set the IO parameters: figure output location and naming
-figDir = "fig"; %write the figures here
-if(~exist(figDir,"dir"))
-    mkdir(figDir); %make sure it exists
+%% Set the IO parameters: output location and naming
+outDir = "out"; %write the output figures and tables here
+if(~exist(outDir,"dir"))
+    mkdir(outDir); %make sure it exists
 end
 
 % set the right coupling code
@@ -81,10 +82,13 @@ if (useFlightData)
 else
     nCPG="eps_one";
 end
-%nCPG=(useFlightData):("flug"):("eps_one"); %default to epsilon-one coupling
+%nCPG=(useFlightData)?("flug"):("eps_one"); %default to epsilon-one coupling
 %brief: $NAME-$CPG-[STK|OVR].$ext STK for Stacked, OVR for Overview
-pathOutFigStacked = fullfile(figDir,join([instName,nCPG,"STK"],fnSep));
-pathOutFigOverview = fullfile(figDir,join([instName,nCPG,"OVR"],fnSep));
+pathOutFigStacked = fullfile(outDir,join([instName,nCPG,"STK"],fnSep));
+pathOutFigOverview = fullfile(outDir,join([instName,nCPG,"OVR"],fnSep));
+
+pathOutTabAbs = fullfile(outDir,join([instName,nCPG,"abs"],fnSep));
+pathOutTabFrac = fullfile(outDir,join([instName,nCPG,"frac"],fnSep));
 %$NAME_$SIZE-$CPG-beta_$beta-gamma_$gamma-T_$tFinal.$EXT
 
 %% Read the Initial Values (inc. node number)
@@ -230,20 +234,37 @@ print(fAllNodesAbs,pathOutFigOverview,'-dpng');
 %print the tiled stacked per-nodes (just the first maxTiles)
 print(fStacked,pathOutFigStacked,'-dpng');
 %% Time series export, to a .csv
-disp("Re-shaping the output");
+disp("Re-shaping the output time series");
 tic
-% intersperse sEvo,iEvo, and rEvo;
-tmpA=[flattenRowMjr(sEvo)' flattenRowMjr(iEvo)' flattenRowMjr(rEvo)' ];
-% now cut, with nTicks=numel(0:tFin) being the number of time ticks 
-%[tmpA(1:wat,:) tmpA(wat+1:2*wat,:) tmpA(2*wat+1:3*wat,:) tmpA(3*wat+1:4*wat,:), ...]
-nTics=numel(0:tFin);
-outB = zeros(nTics,3*nodeNum); %preallocate the output
-for k = 1:nodeNum 
-    outB(1:nTics,3*(k-1)+1:3*k) =  tmpA( (k-1)*nTics +1:k*nTics,:);
-end
+%generate the output tables
+outTabFrac=mkOutTable(sEvo,iEvo,rEvo);
+outTabAbs=mkOutTable(S_Evo,I_Evo,R_Evo);
 toc
+
+%write the output tables to .csv
+writematrix(outTabFrac,strcat(pathOutTabFrac,'.csv'))
+writematrix(outTabAbs,strcat(pathOutTabAbs,'.csv'))
+
 %% dbf lf: for calling local functions from command line
 lf = localfunctions;
+%% aux: Make Output Table
+%TODO: switch the output display from ticks to days, using stepsPerDay
+% takes the 3 compartments' time series, e.g. s_1,\dots,s_n[0,tFin], i, r
+% and puts them into a table of the form: \forall t, 
+% t, s_1(t), i_1(t), r_1(t), ... , s_n(t), i_1(t), r_n(t)
+% NB!: assume time series are of the size [nodeNum\times nSteps]
+function outT = mkOutTable(S, I, R)
+nNodes = size(S,1);    %must match for S, I, and R
+nTics = size(S,2); %must match for S, I, and R
+
+tmpA=[flattenRowMjr(S)' flattenRowMjr(I)' flattenRowMjr(R)' ];
+
+outT = zeros(nTics,3*nNodes +1);  
+outT(:,1)=0:(nTics-1); %write time ticks as the first column, from tick 0
+for k = 1:nNodes %now copy the info from tmpA with a sliding window
+    outT(1:nTics,3*(k-1)+2:3*k+1) =  tmpA( (k-1)*nTics +1:k*nTics,:);
+end
+end %end function, return outT
 %% aux: Flatten Row-Major,
 % turns [N\times nCol] matrix into a column vector [nCol*N\times 1]
 % in row-major order, e.g. [s1 i1; s2 i2] -> [s1; i1; s2; i2]
