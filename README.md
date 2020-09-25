@@ -9,13 +9,17 @@ Simulation Tools for Networked SIR+
 
 3. Admire the produced figures.
 
+4. Stand in awe of the produced tables.
+
 ## Figure export
 
-At this time, only manual. Suggested location: `./fig`, not tracked by the version control.
+Automated, look into `./out` after running the script.
 `fAllNodesAbs` tracks per-compartment evolution for all nodes
 `fStacked` shows per-node stacked plots of the form `i(t)+s(t)+r(t)`
 
-Use `print`, `exportgraphics`, or something else on these
+## “Time Series” export
+Automated, look into `./out` after running the script.
+Two `.csv` are produced, giving each simulation _day_'s population of each node's compartments, both in absolute and fractional forms.
 
 ## Compatibility notes
 
