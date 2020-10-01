@@ -32,7 +32,8 @@ instDir="data"; %just the small airport-derived cases here
 %initial values instances have the form $instName-init.csv
 
 %set the instance name
-%instName="seattle_124"; %smalles of the FluTe-derived
+%instName="seattle_124"; %the smallest non-singleton of the FluTe-derived
+%instName="la_2049"; %a larger FluTe-derived instance
 instName="first_4"; %toy 4-city AP-derived instance, Atlanta, Boston, Charlotteville, Denver
 
 
