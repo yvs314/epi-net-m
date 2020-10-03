@@ -13,15 +13,17 @@ oboe-main.jl v.0.1: "From scripts to proper code" edition
 let's migrate from Jupyter NB, I say.
 =#
 
+#module, not include, to prevent multiple inculdes (oh hi #ifndef)
+module Oboe 
+
 #reading ingress $name-tract.dat, $name-wf.dat$
 #reading ingress; possibly, output too
 using CSV
-#transforming the data; 
+#transforming the data in tabular form; 
 using DataFrames
 
-#postponing module setup until later, start with dumb include("Oboe.jl")
-#module Oboe 
-callsign="This is Oboe v.0.1"
+
+global const callsign="This is Oboe v.0.1"
 println(callsign)
 
 #= 
@@ -48,4 +50,4 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
-#end
+end
