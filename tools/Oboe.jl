@@ -10,11 +10,19 @@ Reading the FluTE data and transforming it to my input format.
 Might separate my input format definitions later.
 
 oboe-main.jl v.0.1: "From scripts to proper code" edition
-let's migrate from Jupyter NB, I say.
+             v.0.2: switch to `module`
+             v.0.3: got as far as reading FluTE tracts
 =#
+
+#= makes each `using` call re-compile this module, 
+which is what I want during development; otherwise,
+it continues does not reflect the changes unless the kernel is restarted =#
+#__precompile__(false) 
+
 
 #module, not include, to prevent multiple inculdes (oh hi #ifndef)
 module Oboe 
+
 
 #reading ingress $name-tract.dat, $name-wf.dat$
 #reading ingress; possibly, output too
@@ -23,8 +31,8 @@ using CSV
 using DataFrames
 
 
-global const callsign="This is Oboe v.0.1"
-println(callsign)
+const callsign="This is Oboe v.0.3"
+#println(callsign)
 
 #= 
 1. all paths are set in view of running from epi-net-m/tools
@@ -44,10 +52,24 @@ struct NamingSpec #all fields are String, don't say I didn't warn you
     fltInitSuff::String
     myInitSuff::String
 end
-#the naming conventions I am going to use
+
+#the naming conventions I am going to use 
+#as well as input and output directories
 global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract","flute")
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
+#show the FluTE's tract filenames found in ins.ifDir, default to fn
+function lsTracts(ins::NamingSpec = fn)
+    filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
+
+#load a FluTE census tract into a DataFrame
+function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
+    dfRaw=CSV.File(joinpath(ins.ifDir,ifName)
+    ,header=false
+    ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
+end
+
+end #end module Oboe
