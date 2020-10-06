@@ -65,11 +65,13 @@ function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
 
-#load a FluTE census tract into a DataFrame
+#= load a FluTE census tract info into a DataFrame, 
+setting the types and colnames =#
 function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
     dfRaw=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
+    names!(dfRaw, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
 end
 
 end #end module Oboe
