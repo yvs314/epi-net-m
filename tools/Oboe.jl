@@ -29,6 +29,8 @@ module Oboe
 using CSV
 #transforming the data in tabular form; 
 using DataFrames
+#read-made `mean` function
+using Statistics
 
 
 const callsign="This is Oboe v.0.3"
@@ -72,6 +74,28 @@ function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
     names!(dfRaw, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
+end
+
+#= testing by-state aggregation, 
+with dumb Euclidean centroid for geographical coordinates
+Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
+=#
+function aggBySte(idf)
+    by(idf,[:Ste]) do bySte
+#define new rows through *named tuples*; preserves the types!
+        (Pop=sum(bySte.Pop), LAT=mean(bySte.LAT), LNG=mean(bySte.LNG))
+    end
+end
+
+#= testing by-county aggregation, 
+with dumb Euclidean centroid for geographical coordinates
+Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
+=#
+function aggByCty(idf)
+    by(idf,[:Ste,:Cty]) do byCty
+#define new rows through *named tuples*; preserves the types!
+        (Pop=sum(byCty.Pop), LAT=mean(byCty.LAT), LNG=mean(byCty.LNG))
+    end
 end
 
 end #end module Oboe
