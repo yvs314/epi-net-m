@@ -1,4 +1,4 @@
-#= 
+#=
 Author: Yaroslav Salii, 2020.
 
 This is Oboe-Mangle, with a view to generate instances for testing
@@ -12,31 +12,27 @@ Might separate my input format definitions later.
 oboe-main.jl v.0.1: "From scripts to proper code" edition
              v.0.2: switch to `module`
              v.0.3: got as far as reading FluTE tracts
+             v.0.4: added basic by-county and by-state IV aggregation
 =#
-
-#= makes each `using` call re-compile this module, 
-which is what I want during development; otherwise,
-it continues does not reflect the changes unless the kernel is restarted =#
-#__precompile__(false) 
 
 
 #module, not include, to prevent multiple inculdes (oh hi #ifndef)
-module Oboe 
+module Oboe
 
 
 #reading ingress $name-tract.dat, $name-wf.dat$
 #reading ingress; possibly, output too
 using CSV
-#transforming the data in tabular form; 
+#transforming the data in tabular form;
 using DataFrames
 #read-made `mean` function
 using Statistics
 
 
-const callsign="This is Oboe v.0.3"
+const callsign="This is Oboe v.0.4"
 #println(callsign)
 
-#= 
+#=
 1. all paths are set in view of running from epi-net-m/tools
 2. data is meant to live be in epi-net-m/data
 =#
@@ -49,25 +45,32 @@ struct NamingSpec #all fields are String, don't say I didn't warn you
     sSep::String
     #read from ifDir, write to ofDir
     ifDir::String
+ #   ifDirAir::String
     ofDir::String
     # what's after instance's name in its Initial Values file name
     fltInitSuff::String
     myInitSuff::String
+    # # (rel) path to BTS Flights
+    # ifBTS::String
+    # # (rel) path to OpenFlights airports.dat
+    # ifOAP::String
 end
 
-#the naming conventions I am going to use 
+#the naming conventions I am going to use
 #as well as input and output directories
 global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract","flute")
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
+
+
 #show the FluTE's tract filenames found in ins.ifDir, default to fn
 function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
 
-#= load a FluTE census tract info into a DataFrame, 
+#= load a FluTE census tract info into a DataFrame,
 setting the types and colnames =#
 function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
     dfRaw=CSV.File(joinpath(ins.ifDir,ifName)
@@ -76,7 +79,7 @@ function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
     names!(dfRaw, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
 end
 
-#= testing by-state aggregation, 
+#= testing by-state aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
@@ -87,7 +90,7 @@ function aggBySte(idf)
     end
 end
 
-#= testing by-county aggregation, 
+#= testing by-county aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
@@ -97,5 +100,29 @@ function aggByCty(idf)
         (Pop=sum(byCty.Pop), LAT=mean(byCty.LAT), LNG=mean(byCty.LNG))
     end
 end
+
+#=======WORKING===WITH===AIRPORTS====================#
+
+#-------TYDYING---BTS---INPUT-------------------------#
+#locating input files
+const APdir= joinpath("..","data","by-tract","air")::String
+#raw BTS data, with separate per-carrier flights
+global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
+global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
+
+#read the BTS file, and retain only :1 Passengrs, :5 Origin, and :7 Dest
+function rdBTS(ifName=ifBTS::String)
+    rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
+    #testing the exit on non-integer passengers
+    #rawBTS.PASSENGERS[1]=1.1
+    if map( x -> floor(x)==x, rawBTS[:,1]) |> all
+        rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
+    else
+        println("CAVEAT: *non-integer* PASSENGERS in Flights input.")
+    end
+    return rawBTS
+end
+
+#sum the passengers on the flights with same (ORG,DEST) pairs
 
 end #end module Oboe
