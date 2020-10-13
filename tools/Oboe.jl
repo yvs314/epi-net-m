@@ -103,15 +103,17 @@ end
 
 #=======WORKING===WITH===AIRPORTS====================#
 
-#-------TYDYING---BTS---INPUT-------------------------#
+#-------TIDY---BTS---INPUT-------------------------#
 #locating input files
 const APdir= joinpath("..","data","by-tract","air")::String
 #raw BTS data, with separate per-carrier flights
 global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
+#raw OpenFlights AP data 
 global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
+#TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
 
-#read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
-#set the columns to [:ORG,:DST,:PSG] for uniformity
+#=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
+#set the columns to [:ORG,:DST,:PSG] for uniformity=#
 function rdBTS(ifName=ifBTS::String)
     rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
     #testing the exit on non-integer passengers
@@ -124,6 +126,22 @@ function rdBTS(ifName=ifBTS::String)
     names!(rawBTS,[:PSG,:ORG,:DST])
     return rawBTS[[:ORG,:DST,:PSG]] #
 end
+
+#----------------------------------------------------#
+
+#-------TIDY---OPENFLIGHTS---INPUT-------------------#
+
+const apColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
+
+#just read the OpenFlights.org's airports.dat, giving proper col names
+function rdAPs(ifName=ifAPs::String)
+    out=CSV.File(ifName,header=false) |> DataFrame
+  #  ,types=[Int,String,String,String,String,String,Float64,Float64,Int,Float64,String,String,String]) |> DataFrame
+    names!(out, apColNames)
+    #gotta drop the unnecessary columns now
+end
+
+#-----BTS---AGGREGATION---ETC---------------------------#
 
 #=
 sum the passengers on the flights with same (ORG,DST) pairs 
@@ -140,8 +158,8 @@ function grpBTS(idf=rdBTS()::DataFrame)
     sort!(out,[:ORG,:DST])
 end
 
-#= returns `givenAPs`, a DataFrame with all AP codes present
-to be inner-joined, i.e., ⋂, with OpenFlights to get their coordinates =# 
+#= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
+to be inner-joined ⋂ with OpenFlights to get their coordinates =# 
 function mkFlightInfo(idf=grpBTS()::DataFrame)
     #separate Org APs and Dest APs
     uOrgs = select(idf, :ORG) |> sort |> unique 
