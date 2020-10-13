@@ -73,10 +73,10 @@ end
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames =#
 function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
-    dfRaw=CSV.File(joinpath(ins.ifDir,ifName)
+    idf=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
-    names!(dfRaw, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
+    names!(idf, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
 end
 
 #= testing by-state aggregation,
@@ -111,7 +111,7 @@ global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
 global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 
 #read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
-#rename the columns to [:PSG,:ORG,:DST] for uniformity
+#set the columns to [:ORG,:DST,:PSG] for uniformity
 function rdBTS(ifName=ifBTS::String)
     rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
     #testing the exit on non-integer passengers
@@ -122,7 +122,7 @@ function rdBTS(ifName=ifBTS::String)
         println("CAVEAT: *non-integer* PASSENGERS in Flights input.")
     end
     names!(rawBTS,[:PSG,:ORG,:DST])
-    return rawBTS
+    return rawBTS[[:ORG,:DST,:PSG]] #
 end
 
 #=
@@ -140,6 +140,24 @@ function grpBTS(idf=rdBTS()::DataFrame)
     sort!(out,[:ORG,:DST])
 end
 
-
+#= returns `givenAPs`, a DataFrame with all AP codes present
+to be inner-joined, i.e., ⋂, with OpenFlights to get their coordinates =# 
+function mkFlightInfo(idf=grpBTS()::DataFrame)
+    #separate Org APs and Dest APs
+    uOrgs = select(idf, :ORG) |> sort |> unique 
+    uDsts = select(idf, :DST) |> sort |> unique
+    #give "em the same column name, to have convenient "join" ops
+    rename!(uOrgs,Dict(:ORG=> :apName))
+    rename!(uDsts,Dict(:DST=> :apName))
+    #let's find 2-way APs and all APs
+    twoWayAPs = join(uOrgs,uDsts, on = :apName, kind = :inner) #inner join: orgs ⋂ dsts
+    allAPs = join(uOrgs,uDsts, on = :apName, kind = :outer) #outer join: orgs ⋃ dsts
+    
+    # missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
+    mOrgs = join(allAPs,uOrgs, on = :apName, kind = :anti)
+    # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
+    mDsts = join(allAPs,uDsts, on = :apName, kind = :anti)
+    return(givenAPs=allAPs,orgs=uOrgs,dests=uDsts)    
+end
 
 end #end module Oboe
