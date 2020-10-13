@@ -110,7 +110,8 @@ const APdir= joinpath("..","data","by-tract","air")::String
 global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
 global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 
-#read the BTS file, and retain only :1 Passengrs, :5 Origin, and :7 Dest
+#read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
+#rename the columns to [:PSG,:ORG,:DST] for uniformity
 function rdBTS(ifName=ifBTS::String)
     rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
     #testing the exit on non-integer passengers
@@ -120,9 +121,25 @@ function rdBTS(ifName=ifBTS::String)
     else
         println("CAVEAT: *non-integer* PASSENGERS in Flights input.")
     end
+    names!(rawBTS,[:PSG,:ORG,:DST])
     return rawBTS
 end
 
-#sum the passengers on the flights with same (ORG,DEST) pairs
+#=
+sum the passengers on the flights with same (ORG,DST) pairs 
+(moves Passengers to the 3rd column)
+sort lexicographically in (ORG,DST) order
+set the column names to [:ORG,:DST,:PSG]
+final output is the air travel graph as a *list of edges*
+=#
+function grpBTS(idf=rdBTS()::DataFrame)
+    out = by(idf, [:ORG,:DST]) do flights
+        [sum(flights.PSG)]
+    end
+    names!(out, [:ORG,:DST,:PSG]) #restore :PSG's name from :x1
+    sort!(out,[:ORG,:DST])
+end
+
+
 
 end #end module Oboe
