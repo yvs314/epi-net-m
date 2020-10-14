@@ -131,14 +131,22 @@ end
 
 #-------TIDY---OPENFLIGHTS---INPUT-------------------#
 
-const apColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
+const apAllColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
+#reordered in the order of necessity; 3-letter IATA code as ID
+const apRetainedColNames=[:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
 
-#just read the OpenFlights.org's airports.dat, giving proper col names
+#=
+read the OpenFlights.org's airports.dat, and retain only the columns
+I feel I may use; put :IATA_Code,:LAT,:LNG first,
+these are definitely useful
+CAVEAT: some missing values in :City, some weird values in :Country
+TODO: resolve this caveat
+=#
 function rdAPs(ifName=ifAPs::String)
     out=CSV.File(ifName,header=false) |> DataFrame
-  #  ,types=[Int,String,String,String,String,String,Float64,Float64,Int,Float64,String,String,String]) |> DataFrame
-    names!(out, apColNames)
-    #gotta drop the unnecessary columns now
+    names!(out, apAllColNames)
+    #retain only the useful columns
+    select!(out,apNeededColNames)
 end
 
 #-----BTS---AGGREGATION---ETC---------------------------#
