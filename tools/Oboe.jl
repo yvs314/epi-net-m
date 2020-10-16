@@ -149,6 +149,14 @@ function rdAPs(ifName=ifAPs::String)
     select!(out,apNeededColNames)
 end
 
+#=
+pick just the `givenAPs` (by IATA_Code) from all in dfAPinfo
+=#
+function pickAPs(myAPs=mkFlightInfo().givenAPs::DataFrame
+                , dfAPinfo=rdAPs()::DataFrame)
+    out= join(myAPs, dfAPinfo,on=:IATA_Code, kind=:inner)
+end
+
 #-----BTS---AGGREGATION---ETC---------------------------#
 
 #=
@@ -173,16 +181,16 @@ function mkFlightInfo(idf=grpBTS()::DataFrame)
     uOrgs = select(idf, :ORG) |> sort |> unique 
     uDsts = select(idf, :DST) |> sort |> unique
     #give "em the same column name, to have convenient "join" ops
-    rename!(uOrgs,Dict(:ORG=> :apName))
-    rename!(uDsts,Dict(:DST=> :apName))
+    rename!(uOrgs,Dict(:ORG=> :IATA_Code))
+    rename!(uDsts,Dict(:DST=> :IATA_Code))
     #let's find 2-way APs and all APs
-    twoWayAPs = join(uOrgs,uDsts, on = :apName, kind = :inner) #inner join: orgs ⋂ dsts
-    allAPs = join(uOrgs,uDsts, on = :apName, kind = :outer) #outer join: orgs ⋃ dsts
+    twoWayAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :inner) #inner join: orgs ⋂ dsts
+    allAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :outer) #outer join: orgs ⋃ dsts
     
     # missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
-    mOrgs = join(allAPs,uOrgs, on = :apName, kind = :anti)
+    mOrgs = join(allAPs,uOrgs, on = :IATA_Code, kind = :anti)
     # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
-    mDsts = join(allAPs,uDsts, on = :apName, kind = :anti)
+    mDsts = join(allAPs,uDsts, on = :IATA_Code, kind = :anti)
     return(givenAPs=allAPs,orgs=uOrgs,dests=uDsts)    
 end
 
