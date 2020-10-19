@@ -13,6 +13,7 @@ oboe-main.jl v.0.1: "From scripts to proper code" edition
              v.0.2: switch to `module`
              v.0.3: got as far as reading FluTE tracts
              v.0.4: added basic by-county and by-state IV aggregation
+             v.0.5: join (intersect) BTS with OpenFlights
 =#
 
 
@@ -29,14 +30,13 @@ using DataFrames
 using Statistics
 
 
-const callsign="This is Oboe v.0.4"
+const callsign="This is Oboe v.0.5"
 #println(callsign)
 
 #=
 1. all paths are set in view of running from epi-net-m/tools
-2. data is meant to live be in epi-net-m/data
+2. data is meant to live in epi-net-m/data
 =#
-
 
 #all you need to know about input and output file names
 struct NamingSpec #all fields are String, don't say I didn't warn you
@@ -50,10 +50,6 @@ struct NamingSpec #all fields are String, don't say I didn't warn you
     # what's after instance's name in its Initial Values file name
     fltInitSuff::String
     myInitSuff::String
-    # # (rel) path to BTS Flights
-    # ifBTS::String
-    # # (rel) path to OpenFlights airports.dat
-    # ifOAP::String
 end
 
 #the naming conventions I am going to use
@@ -62,8 +58,6 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract","flute")
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
-
-
 
 #show the FluTE's tract filenames found in ins.ifDir, default to fn
 function lsTracts(ins::NamingSpec = fn)
