@@ -102,7 +102,7 @@ end
 const APdir= joinpath("..","data","by-tract","air")::String
 #raw BTS data, with separate per-carrier flights
 global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
-#raw OpenFlights AP data 
+#raw OpenFlights AP data
 global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 #TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
 
@@ -154,7 +154,7 @@ end
 #-----BTS---AGGREGATION---ETC---------------------------#
 
 #=
-sum the passengers on the flights with same (ORG,DST) pairs 
+sum the passengers on the flights with same (ORG,DST) pairs
 (moves Passengers to the 3rd column)
 sort lexicographically in (ORG,DST) order
 set the column names to [:ORG,:DST,:PSG]
@@ -165,27 +165,33 @@ function grpBTS(idf=rdBTS()::DataFrame)
         [sum(flights.PSG)]
     end
     names!(out, [:ORG,:DST,:PSG]) #restore :PSG's name from :x1
-    sort!(out,[:ORG,:DST])
+    sort!(out,[:ORG,:DST]) #sort by departure/arrival AP names
 end
 
+#TODO: rename `givenAPs` to more fitting `allAPs`
 #= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
-to be inner-joined ⋂ with OpenFlights to get their coordinates =# 
+to be inner-joined ⋂ with OpenFlights to get their coordinates =#
 function mkFlightInfo(idf=grpBTS()::DataFrame)
-    #separate Org APs and Dest APs
-    uOrgs = select(idf, :ORG) |> sort |> unique 
-    uDsts = select(idf, :DST) |> sort |> unique
-    #give "em the same column name, to have convenient "join" ops
-    rename!(uOrgs,Dict(:ORG=> :IATA_Code))
-    rename!(uDsts,Dict(:DST=> :IATA_Code))
-    #let's find 2-way APs and all APs
-    twoWayAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :inner) #inner join: orgs ⋂ dsts
+#pick :ORG and :DST APs, sort them, and set col name to :IATA_Code
+    uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
+    uDsts = select(idf, :DST) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
+#list all APs *mentioned*, whether normal, reflexive, or in/out-only
     allAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :outer) #outer join: orgs ⋃ dsts
-    
-    # missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
+# missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
     mOrgs = join(allAPs,uOrgs, on = :IATA_Code, kind = :anti)
-    # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
+# missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
     mDsts = join(allAPs,uDsts, on = :IATA_Code, kind = :anti)
-    return(givenAPs=allAPs,orgs=uOrgs,dests=uDsts)    
+#------PSG--FLOW--MATRIX-----#
+
+#make up the missing (:ORG,:DST) pairs, for mOrgs × mDests (Cartesian product)
+    mRts_ = join(mOrgs,mDsts, kind = :cross, makeunique=true)
+#restore the [:ORG,:DST] names
+    names!(mRts_,[:ORG,:DST])
+#add the dummy :PSG column (all `missing`), after :ORG and :DST
+insertcols!(mRts_,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(mRts_)))
+#check that the unstacked thing is *square*
+#return as NamedTuple, (ItemName1=Item1_Content,...)
+    return(givenAPs=allAPs,mRts=mRts_,uO=uOrgs,uD=uDsts)
 end
 
 end #end module Oboe
