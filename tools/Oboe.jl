@@ -110,12 +110,10 @@ global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 #set the columns to [:ORG,:DST,:PSG] for uniformity=#
 function rdBTS(ifName=ifBTS::String)
     rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
-    #testing the exit on non-integer passengers
-    #rawBTS.PASSENGERS[1]=1.1
-    if map( x -> floor(x)==x, rawBTS[:,1]) |> all
+    if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
         rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
-    else
-        println("CAVEAT: *non-integer* PASSENGERS in Flights input.")
+    else #∃ non-integer passengers-per-year entry
+        error("CAVEAT: *non-integer* PASSENGERS in Flights input.")
     end
     names!(rawBTS,[:PSG,:ORG,:DST])
     return rawBTS[[:ORG,:DST,:PSG]] #
@@ -140,7 +138,7 @@ function rdAPs(ifName=ifAPs::String)
     out=CSV.File(ifName,header=false) |> DataFrame
     names!(out, apAllColNames)
     #retain only the useful columns
-    select!(out,apNeededColNames)
+    select!(out,apRetainedColNames)
 end
 
 #=
@@ -168,11 +166,13 @@ function grpBTS(idf=rdBTS()::DataFrame)
     sort!(out,[:ORG,:DST]) #sort by departure/arrival AP names
 end
 
-#TODO: rename `givenAPs` to more fitting `allAPs`
-#= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
-to be inner-joined ⋂ with OpenFlights to get their coordinates =#
-function mkFlightInfo(idf=grpBTS()::DataFrame)
-#----PREP--PRESENT--AND--ABSENT--ORG/DST--APs-----#
+#=
+Take idf::[:ORG,:DST,:PSG], return the “missing pairs” such that 
+∀i: out[i,_,_] (i ∉ idf.ORG) ∧ (i ∈ idf.DST)
+∀j: out[_,j,_] (j ∉ idf.DST) ∧ (i ∈ idf.ORG)
+and also “all-pairs”, idf.ORG ⋃ idf.DST 
+=#
+function mkMissingPairs(idf::DataFrame)
     #pick :ORG and :DST APs, sort them, and set col name to :IATA_Code
     uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
     uDsts = select(idf, :DST) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
@@ -182,21 +182,28 @@ function mkFlightInfo(idf=grpBTS()::DataFrame)
     mOrgs = join(allAPs,uOrgs, on = :IATA_Code, kind = :anti)
 # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
     mDsts = join(allAPs,uDsts, on = :IATA_Code, kind = :anti)
-#----MAKE--PSG--FLOW--MATRIX-----#
 #make up the missing (:ORG,:DST) pairs, i.e., mOrgs × mDests
-    mRts_ = join(mOrgs,mDsts, kind = :cross, makeunique=true)
-    names!(mRts_,[:ORG,:DST]) #restore the [:ORG,:DST] names
+    odf = join(mOrgs,mDsts, kind = :cross, makeunique=true)
+    names!(odf,[:ORG,:DST]) #restore the [:ORG,:DST] names
     #add the dummy :PSG column (all `missing`), after :ORG and :DST
-    insertcols!(mRts_,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(mRts_)))
-    #add `mRts` and transforming list-of-pairs `idf` into a “adj.mx”-df
-    dfA=unstack(vcat(idf,mRts_),:ORG,:DST,:PSG)
+    insertcols!(odf,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(odf)))
+    return (dfA=odf,givenAPs=allAPs)
+end
+
+#= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
+to be inner-joined ⋂ with OpenFlights to get their coordinates =#
+function mkFlightInfo(idf=grpBTS()::DataFrame)
+#call the auxiliary function to get the `givenAPs` and flow matrix dfA
+tmp= mkMissingPairs(idf)
+#add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
+    dfA=unstack(vcat(idf,tmp.dfA),:ORG,:DST,:PSG)
     #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
     if dfA[:,1] != map(string, names(dfA))[2:end]
         error("Origin and destination names mismatch. Terminating.\n")
     end
 
     #return as NamedTuple, (ItemName1=Item1_Content,...)
-    return(givenAPs=allAPs,dfFlow=dfA,mRts=mRts_,uO=uOrgs,uD=uDsts)
+    return(givenAPs=tmp.givenAPs,dfFlow=dfA)
 end
 
 end #end module Oboe
