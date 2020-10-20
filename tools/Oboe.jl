@@ -187,16 +187,30 @@ function mkMissingPairs(idf::DataFrame)
     names!(odf,[:ORG,:DST]) #restore the [:ORG,:DST] names
     #add the dummy :PSG column (all `missing`), after :ORG and :DST
     insertcols!(odf,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(odf)))
-    return (dfA=odf,givenAPs=allAPs)
+    return (mRts=odf,givenAPs=allAPs)
+end
+
+#= take dFlow::[:ORG,:AP1,:AP2,...,AP_n], [n × (n+1)],
+a matrix-like `df`, with AP names in its 1st col, _[:,1]
+return a `df` out::[:IATA_Code,:FLOW,:IN,:OUT,:TOUR],
+with :FLW=:IN+:OUT,:IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
+=#
+function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
+    M = convert(Matrix,dfFlow[:,2:end])
+    out=DataFrame(IATA_Code=dfFlow[:,1]
+    ,IN=[sum(M[:,j]) - M[j,j] for j ∈ 1:size(M)[2] ]#col-wise total
+    ,OUT=[sum(M[i,:]) - M[i,i] for i ∈ 1:size(M)[1] ]#row-wise total
+    ,TOUR=[M[i,i] for i ∈ 1:size(M)[1]] )#just diagonal element
+    #make the :FLOW column as :IN + :OUT
 end
 
 #= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
 to be inner-joined ⋂ with OpenFlights to get their coordinates =#
 function mkFlightInfo(idf=grpBTS()::DataFrame)
 #call the auxiliary function to get the `givenAPs` and flow matrix dfA
-tmp= mkMissingPairs(idf)
+tmp = mkMissingPairs(idf)
 #add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
-    dfA=unstack(vcat(idf,tmp.dfA),:ORG,:DST,:PSG)
+    dfA=unstack(vcat(idf,tmp.mRts),:ORG,:DST,:PSG)
     #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
     if dfA[:,1] != map(string, names(dfA))[2:end]
         error("Origin and destination names mismatch. Terminating.\n")
