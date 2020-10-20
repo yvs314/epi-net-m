@@ -172,7 +172,8 @@ end
 #= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
 to be inner-joined ⋂ with OpenFlights to get their coordinates =#
 function mkFlightInfo(idf=grpBTS()::DataFrame)
-#pick :ORG and :DST APs, sort them, and set col name to :IATA_Code
+#----PREP--PRESENT--AND--ABSENT--ORG/DST--APs-----#
+    #pick :ORG and :DST APs, sort them, and set col name to :IATA_Code
     uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
     uDsts = select(idf, :DST) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
 #list all APs *mentioned*, whether normal, reflexive, or in/out-only
@@ -181,17 +182,21 @@ function mkFlightInfo(idf=grpBTS()::DataFrame)
     mOrgs = join(allAPs,uOrgs, on = :IATA_Code, kind = :anti)
 # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
     mDsts = join(allAPs,uDsts, on = :IATA_Code, kind = :anti)
-#------PSG--FLOW--MATRIX-----#
-
-#make up the missing (:ORG,:DST) pairs, for mOrgs × mDests (Cartesian product)
+#----MAKE--PSG--FLOW--MATRIX-----#
+#make up the missing (:ORG,:DST) pairs, i.e., mOrgs × mDests
     mRts_ = join(mOrgs,mDsts, kind = :cross, makeunique=true)
-#restore the [:ORG,:DST] names
-    names!(mRts_,[:ORG,:DST])
-#add the dummy :PSG column (all `missing`), after :ORG and :DST
-insertcols!(mRts_,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(mRts_)))
-#check that the unstacked thing is *square*
-#return as NamedTuple, (ItemName1=Item1_Content,...)
-    return(givenAPs=allAPs,mRts=mRts_,uO=uOrgs,uD=uDsts)
+    names!(mRts_,[:ORG,:DST]) #restore the [:ORG,:DST] names
+    #add the dummy :PSG column (all `missing`), after :ORG and :DST
+    insertcols!(mRts_,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(mRts_)))
+    #add `mRts` and transforming list-of-pairs `idf` into a “adj.mx”-df
+    dfA=unstack(vcat(idf,mRts_),:ORG,:DST,:PSG)
+    #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
+    if dfA[:,1] != map(string, names(dfA))[2:end]
+        error("Origin and destination names mismatch. Terminating.\n")
+    end
+
+    #return as NamedTuple, (ItemName1=Item1_Content,...)
+    return(givenAPs=allAPs,dfFlow=dfA,mRts=mRts_,uO=uOrgs,uD=uDsts)
 end
 
 end #end module Oboe
