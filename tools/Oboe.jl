@@ -141,10 +141,9 @@ function rdAPs(ifName=ifAPs::String)
     select!(out,apRetainedColNames)
 end
 
-#=
-pick just the `givenAPs` (by IATA_Code) from all in dfAPinfo
-=#
-function pickAPs(myAPs=mkFlightInfo().givenAPs::DataFrame
+
+#pick just the given APs (by IATA_Code) from all in dfAPinfo
+function pickAPs(myAPs=mkAggFlows()::DataFrame
                 , dfAPinfo=rdAPs()::DataFrame)
     out= join(myAPs, dfAPinfo,on=:IATA_Code, kind=:inner)
 end
@@ -191,25 +190,7 @@ function mkMissingPairs(idf::DataFrame)
     return (mRts=odf,givenAPs=allAPs)
 end
 
-#= take dFlow::[:ORG,:AP1,:AP2,...,AP_n], [n × (n+1)],
-a matrix-like `df`, with AP names in its 1st col, _[:,1]
-return a `df` out::[:IATA_Code,:FLOW,:IN,:OUT,:TOUR],
-with :FLW=:IN+:OUT,:IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
-in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
-=#
-function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
-Mraw = convert(Matrix,dfFlow[:,2:end])
-# identify `missing` with 0; set 0 everywhere
-M = map( x -> ismissing(x) ? 0 : x, Mraw)
-out=DataFrame(IATA_Code=dfFlow[:,1]
-#col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
-    ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
-#row-wise total sans disregard reflexive, `missing` if the departures are only reflexive
-    ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
-#no. reflexive travelers, or `missing`
-    ,TOUR=[Mraw[i,i] for i ∈ 1:size(Mraw)[1]] )#just the reflexive travelers
-    #make the :FLOW column as :IN + :OUT; with absorbing `missing`
-end
+
 
 #= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
 to be inner-joined ⋂ with OpenFlights to get their coordinates =#
@@ -217,12 +198,33 @@ function mkFlightInfo(idf=grpBTS()::DataFrame)
 #call the auxiliary function to get the `givenAPs` and flow matrix dfA
 tmp = mkMissingPairs(idf)
 #add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
-    dfA=unstack(vcat(idf,tmp.mRts) |> sort,:ORG,:DST,:PSG)
+    dfA=unstack(vcat(idf,tmp.mRts) |> sort, :ORG,:DST,:PSG)
     #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
     if dfA[:,1] != map(string, names(dfA))[2:end]
         error("Origin and destination names mismatch. Terminating.\n")
     end
-    return(givenAPs=tmp.givenAPs,dfFlow=dfA)
+    return (givenAPs=tmp.givenAPs,dfFlow=dfA)
 end
+
+#= take dFlow::[:ORG,:AP1,:AP2,...,AP_n], [n × (n+1)],
+a matrix-like `df`, with AP names in its 1st col, _[:,1]
+return a `df` out::[:IATA_Code,:FLOW,:IN,:OUT,:TOUR],
+with :FLW=:IN+:OUT,:IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
+in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
+=#
+function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
+    Mraw = convert(Matrix,dfFlow[:,2:end])
+    # identify `missing` with 0; set 0 everywhere
+    M = map( x -> ismissing(x) ? 0 : x, Mraw)
+    out=DataFrame(IATA_Code=dfFlow[:,1]
+    #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
+        ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
+    #row-wise total sans disregard reflexive, `missing` if the departures are only reflexive
+        ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
+    #no. reflexive travelers, or `missing`
+        ,TOUR=[Mraw[i,i] for i ∈ 1:size(Mraw)[1]] )#just the reflexive travelers
+        #make the :FLOW column as :IN + :OUT; with absorbing `missing`
+        return out
+    end
 
 end #end module Oboe
