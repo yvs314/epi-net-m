@@ -177,7 +177,8 @@ function mkMissingPairs(idf::DataFrame)
     uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
     uDsts = select(idf, :DST) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
 #list all APs *mentioned*, whether normal, reflexive, or in/out-only
-    allAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :outer) #outer join: orgs ⋃ dsts
+#outer join: orgs ⋃ dsts    
+    allAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :outer) |> sort
 # missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
     mOrgs = join(allAPs,uOrgs, on = :IATA_Code, kind = :anti)
 # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
@@ -216,13 +217,11 @@ function mkFlightInfo(idf=grpBTS()::DataFrame)
 #call the auxiliary function to get the `givenAPs` and flow matrix dfA
 tmp = mkMissingPairs(idf)
 #add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
-    dfA=unstack(vcat(idf,tmp.mRts),:ORG,:DST,:PSG)
+    dfA=unstack(vcat(idf,tmp.mRts) |> sort,:ORG,:DST,:PSG)
     #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
     if dfA[:,1] != map(string, names(dfA))[2:end]
         error("Origin and destination names mismatch. Terminating.\n")
     end
-
-    #return as NamedTuple, (ItemName1=Item1_Content,...)
     return(givenAPs=tmp.givenAPs,dfFlow=dfA)
 end
 
