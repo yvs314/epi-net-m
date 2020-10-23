@@ -143,9 +143,25 @@ end
 
 
 #pick just the given APs (by IATA_Code) from all in dfAPinfo
+#output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
 function pickAPs(myAPs=mkAggFlows()::DataFrame
                 , dfAPinfo=rdAPs()::DataFrame)
     out= join(myAPs, dfAPinfo,on=:IATA_Code, kind=:inner)
+    select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
+end
+
+#= pick just the “clean”  APs (no `missing`) from all in dfAPinfo
+TODO: add some cutoff
+CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
+recall that 0 was identified with `missing` in mkAggFlows()=
+Also remove missings from the :IN and :OUT
+=#
+function pickCleanAPs(myAPs=mkAggFlows()::DataFrame
+    , dfAPinfo=rdAPs()::DataFrame)
+    pickedAPs = pickAPs(myAPs,dfAPinfo)
+    uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
+                ,eachrow(myAPs)) |> DataFrame
+    out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
 end
 
 #-----BTS---AGGREGATION---ETC---------------------------#
