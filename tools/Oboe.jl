@@ -17,7 +17,7 @@ oboe-main.jl v.0.1: "From scripts to proper code" edition
 =#
 
 
-#module, not include, to prevent multiple inculdes (oh hi #ifndef)
+#module, not `include`, to prevent multiple inculdes (oh hi #ifndef)
 module Oboe
 
 
@@ -59,6 +59,9 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
+#========READ=&=PROCESS===FluTE===TRACTS=============#
+# sample usage: Oboe.lsTracts()[4] |> Oboe.readFluteTract |> Oboe.aggBySte
+
 #show the FluTE's tract filenames found in ins.ifDir, default to fn
 function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
@@ -66,18 +69,20 @@ end
 
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames =#
-function readFluteTract(ifName::String=lsTracts()[3],ins::NamingSpec=fn)
+function readFluteTract(ifName::String=lsTracts()[4],ins::NamingSpec=fn)
     idf=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
     names!(idf, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
+    return idf
 end
 
+#--------AGGREGATE---TRACT-LIKE---DATA--------------#
 #= testing by-state aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
-function aggBySte(idf)
+function aggBySte(idf=readFluteTract()::DataFrame)
     by(idf,[:Ste]) do bySte
 #define new rows through *named tuples*; preserves the types!
         (Pop=sum(bySte.Pop), LAT=mean(bySte.LAT), LNG=mean(bySte.LNG))
@@ -97,7 +102,7 @@ end
 
 #=======WORKING===WITH===AIRPORTS====================#
 
-#-------TIDY---BTS---INPUT-------------------------#
+
 #locating input files
 const APdir= joinpath("..","data","by-tract","air")::String
 #raw BTS data, with separate per-carrier flights
@@ -106,6 +111,7 @@ global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
 global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 #TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
 
+#-------TIDY---BTS---INPUT-------------------------#
 #=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
 #set the columns to [:ORG,:DST,:PSG] for uniformity=#
 function rdBTS(ifName=ifBTS::String)
