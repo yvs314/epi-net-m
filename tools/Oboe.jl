@@ -30,6 +30,8 @@ using DataFrames
 using Statistics
 
 
+#====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
+
 const callsign="This is Oboe v.0.5"
 #println(callsign)
 
@@ -38,7 +40,7 @@ const callsign="This is Oboe v.0.5"
 2. data is meant to live in epi-net-m/data
 =#
 
-#all you need to know about input and output file names
+#all you need to know about input and output of instances
 struct NamingSpec #all fields are String, don't say I didn't warn you
     # e.g. sep="-", sSep="_"; $name_$size-$suff
     sep::String #to the right of last $sep is filename suffix, to the left is the instance name
@@ -59,7 +61,17 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
-#========READ=&=PROCESS===FluTE===TRACTS=============#
+
+#locating BTS and OpenFlights input files
+const APdir= joinpath("..","data","by-tract","air")::String
+#raw BTS data, with separate per-carrier flights
+global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
+#raw OpenFlights AP data
+global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
+#TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
+
+
+#===FluTE======READ=&=PROCESS===FluTE===TRACTS=============#
 # sample usage: Oboe.lsTracts()[4] |> Oboe.readFluteTract |> Oboe.aggBySte
 
 #show the FluTE's tract filenames found in ins.ifDir, default to fn
@@ -103,32 +115,9 @@ end
 #=======WORKING===WITH===AIRPORTS====================#
 
 
-#locating input files
-const APdir= joinpath("..","data","by-tract","air")::String
-#raw BTS data, with separate per-carrier flights
-global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
-#raw OpenFlights AP data
-global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
-#TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
-
-#-------TIDY---BTS---INPUT-------------------------#
-#=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
-#set the columns to [:ORG,:DST,:PSG] for uniformity=#
-function rdBTS(ifName=ifBTS::String)
-    rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
-    if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
-        rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
-    else #∃ non-integer passengers-per-year entry
-        error("CAVEAT: *non-integer* PASSENGERS in Flights input.")
-    end
-    names!(rawBTS,[:PSG,:ORG,:DST])
-    return rawBTS[[:ORG,:DST,:PSG]] #
-end
-
-#----------------------------------------------------#
-
 #-------TIDY---OPENFLIGHTS---INPUT-------------------#
 
+#move these consts to BASE?
 const apAllColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
 #reordered in the order of necessity; 3-letter IATA code as ID
 const apRetainedColNames=[:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
@@ -148,29 +137,24 @@ function rdAPs(ifName=ifAPs::String)
 end
 
 
-#pick just the given APs (by IATA_Code) from all in dfAPinfo
-#output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
-function pickAPs(myAPs=mkAggFlows()::DataFrame
-                , dfAPinfo=rdAPs()::DataFrame)
-    out= join(myAPs, dfAPinfo,on=:IATA_Code, kind=:inner)
-    select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
+#============BTS===FLIGHT===DATA===PROCESSING============#
+
+#---READ---BTS--FLIGHTS-------------------------#
+#=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
+#set the columns to [:ORG,:DST,:PSG] for uniformity=#
+function rdBTS(ifName=ifBTS::String)
+    rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
+    if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
+        rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
+    else #∃ non-integer passengers-per-year entry
+        error("CAVEAT: *non-integer* PASSENGERS in Flights input.")
+    end
+    names!(rawBTS,[:PSG,:ORG,:DST])
+    return rawBTS[[:ORG,:DST,:PSG]] #
 end
 
-#= pick just the “clean”  APs (no `missing`) from all in dfAPinfo
-TODO: add some cutoff
-CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
-recall that 0 was identified with `missing` in mkAggFlows()=
-Also remove missings from the :IN and :OUT
-=#
-function pickCleanAPs(myAPs=mkAggFlows()::DataFrame
-    , dfAPinfo=rdAPs()::DataFrame)
-    pickedAPs = pickAPs(myAPs,dfAPinfo)
-    uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
-                ,eachrow(myAPs)) |> DataFrame
-    out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
-end
 
-#-----BTS---AGGREGATION---ETC---------------------------#
+#---BTS---TIDY--AGGREGATE---ETC---------------------------#
 
 #=
 sum the passengers on the flights with same (ORG,DST) pairs
@@ -250,3 +234,30 @@ function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
     end
 
 end #end module Oboe
+
+#===========INTERCONNECT===================#
+
+#=====BTS=<-->=OPENFLIGHTS=======#
+
+
+#pick just the given APs (by IATA_Code) from all in dfAPinfo
+#output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
+function pickAPs(myAPs=mkAggFlows()::DataFrame
+    , dfAPinfo=rdAPs()::DataFrame)
+out= join(myAPs, dfAPinfo,on=:IATA_Code, kind=:inner)
+select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
+end
+
+#= pick just the “clean”  APs (no `missing`) from all in dfAPinfo
+TODO: add some cutoff
+CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
+recall that 0 was identified with `missing` in mkAggFlows()=
+Also remove missings from the :IN and :OUT
+=#
+function pickCleanAPs(myAPs=mkAggFlows()::DataFrame
+, dfAPinfo=rdAPs()::DataFrame)
+pickedAPs = pickAPs(myAPs,dfAPinfo)
+uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
+    ,eachrow(myAPs)) |> DataFrame
+out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
+end
