@@ -26,8 +26,10 @@ module Oboe
 using CSV
 #transforming the data in tabular form;
 using DataFrames
-#read-made `mean` function
+#ready-made `mean` function
 using Statistics
+#for `haversine` formula of distance between two points on a big circle
+#using Distances
 
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
@@ -225,7 +227,7 @@ function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
     out=DataFrame(IATA_Code=dfFlow[:,1]
     #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
         ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
-    #row-wise total sans disregard reflexive, `missing` if the departures are only reflexive
+    #row-wise total sans the reflexive, `missing` if the departures are only reflexive
         ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
     #no. reflexive travelers, or `missing`
         ,TOUR=[Mraw[i,i] for i ∈ 1:size(Mraw)[1]] )#just the reflexive travelers
@@ -244,7 +246,7 @@ end #end module Oboe
 #output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
 function pickAPs(myAPs=mkAggFlows()::DataFrame
     , dfAPinfo=rdAPs()::DataFrame)
-out= join(myAPs, dfAPinfo,on=:IATA_Code, kind=:inner)
+out= innerjoin(myAPs, dfAPinfo,on=:IATA_Code)
 select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
 end
 
@@ -261,3 +263,23 @@ uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
     ,eachrow(myAPs)) |> DataFrame
 out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
 end
+
+#*****DESIGNATED***APs************#
+#= This section aims to
+to each location, a row  [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
+assign an AP, a row [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country],
+identified by its :IATA_Code, 
+that is *nearest* to the location
+adding columns :DSG_AP_ID and :DSG_AP_DIST (DSG stands for “designated”)
+=#
+
+#= Distance
+Start with spherical coordinate angular distance,
+i.e., ~Euclidean-2 on geographic coordinates,
+or “haversine”/orthodromic/big-circle distance
+Should get the almost true (ball vs. geoid)
+when coupled with Earth's radius r🜨, or rather, AP's and loc's altitudes
+CAVEAT: getting both altitudes is almost as bad 
+as scrubbing “road distances” from the net
+TODO: route through JuliaGeo/Geodesy to save on reinventing the wheel
+=#
