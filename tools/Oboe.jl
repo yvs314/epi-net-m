@@ -29,7 +29,7 @@ using DataFrames
 #ready-made `mean` function
 using Statistics
 #for `haversine` formula of distance between two points on a big circle
-#using Distances
+using Distances
 
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
@@ -283,3 +283,6 @@ CAVEAT: getting both altitudes is almost as bad
 as scrubbing “road distances” from the net
 TODO: route through JuliaGeo/Geodesy to save on reinventing the wheel
 =#
+const R🜨= 6371 #Earth's radius in km, IAU 2015
+#x and y are Union{AbstractVector{T}, NTuple{2, T}} where T<:Real
+myDist(x,y) = haversine(x,y,R🜨)
