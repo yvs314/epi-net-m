@@ -204,7 +204,7 @@ end
 to be inner-joined ⋂ with OpenFlights to get their coordinates =#
 function mkFlightInfo(idf=grpBTS()::DataFrame)
 #call the auxiliary function to get the `givenAPs` and flow matrix dfA
-tmp = mkMissingPairs(idf)
+    tmp = mkMissingPairs(idf)
 #add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
     dfA=unstack(vcat(idf,tmp.mRts) |> sort, :ORG,:DST,:PSG)
     #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
@@ -235,7 +235,7 @@ function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
         return out
     end
 
-end #end module Oboe
+
 
 #===========INTERCONNECT===================#
 
@@ -244,10 +244,9 @@ end #end module Oboe
 
 #pick just the given APs (by IATA_Code) from all in dfAPinfo
 #output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
-function pickAPs(myAPs=mkAggFlows()::DataFrame
-    , dfAPinfo=rdAPs()::DataFrame)
-out= innerjoin(myAPs, dfAPinfo,on=:IATA_Code)
-select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
+function pickAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
+    out= innerjoin(myAPs, dfAPinfo,on=:IATA_Code)
+    select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
 end
 
 #= pick just the “clean”  APs (no `missing`) from all in dfAPinfo
@@ -256,12 +255,11 @@ CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
 recall that 0 was identified with `missing` in mkAggFlows()=
 Also remove missings from the :IN and :OUT
 =#
-function pickCleanAPs(myAPs=mkAggFlows()::DataFrame
-, dfAPinfo=rdAPs()::DataFrame)
-pickedAPs = pickAPs(myAPs,dfAPinfo)
-uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
-    ,eachrow(myAPs)) |> DataFrame
-out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
+function pickCleanAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
+    pickedAPs = pickAPs(myAPs,dfAPinfo)
+    uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
+        ,eachrow(myAPs)) |> DataFrame
+    out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
 end
 
 #*****DESIGNATED***APs************#
@@ -278,11 +276,22 @@ Start with spherical coordinate angular distance,
 i.e., ~Euclidean-2 on geographic coordinates,
 or “haversine”/orthodromic/big-circle distance
 Should get the almost true (ball vs. geoid)
-when coupled with Earth's radius r🜨, or rather, AP's and loc's altitudes
+when coupled with Earth's radius, or rather, AP's and loc's altitudes
 CAVEAT: getting both altitudes is almost as bad 
 as scrubbing “road distances” from the net
-TODO: route through JuliaGeo/Geodesy to save on reinventing the wheel
+TODO: route through JuliaGeo/Geodesy
 =#
-const R🜨= 6371 #Earth's radius in km, IAU 2015
+
+#Earth's radius in km, IAU 2015
+const R_Earth= 6371 
 #x and y are Union{AbstractVector{T}, NTuple{2, T}} where T<:Real
-myDist(x,y) = haversine(x,y,R🜨)
+myDist(x,y) = haversine(x,y,R_Earth)
+
+#=for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
+return the AP's code and the distance to it in km   =#
+function getNearestAP(nodeRow=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
+    return (IATA_Code=ATL, dist=1.1)
+end
+
+
+end #end module Oboe
