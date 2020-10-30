@@ -289,8 +289,9 @@ myDist(x,y) = haversine(x,y,R_Earth)
 
 #=for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
 return the AP's code and the distance to it in km   =#
-function getNearestAP(nodeRow=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
-    return (IATA_Code="ATL", dist=1.1)
+function getNearestAP(nr=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
+    alle=[(myDist((nr.LAT,nr.LNG),(ap.LAT,ap.LNG)),ap.IATA_Code)  for ap ∈ eachrow(APs)] |> sort
+    return (IATA_Code="ATL", dist=1.1,test=alle)   
 end
 
 
