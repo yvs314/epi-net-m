@@ -24,3 +24,7 @@ Two `.csv` are produced, giving each simulation _day_'s population of each node'
 ## Compatibility notes
 
 Requires **MATLAB R2019** due to reliance on `tiledlayout` for handling subplots
+
+## License
+
+The data set/benchmark instances are licensed under GPL v.3.0 since they are in part derived from the FluTE data under the same license.
