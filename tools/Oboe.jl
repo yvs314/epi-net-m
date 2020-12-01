@@ -145,7 +145,7 @@ end
 #=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
 #set the columns to [:ORG,:DST,:PSG] for uniformity=#
 function rdBTS(ifName=ifBTS::String)
-    rawBTS = select(CSV.read(ifName) |> DataFrame, :1,:5,:7)
+    rawBTS = select(CSV.read(ifName,DataFrame), :1,:5,:7)
     if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
         rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
     else #∃ non-integer passengers-per-year entry
@@ -293,6 +293,7 @@ function getNearestAP(nr=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataF
     alle=[(myDist((nr.LAT,nr.LNG),(ap.LAT,ap.LNG)),ap.IATA_Code)  for ap ∈ eachrow(APs)] |> sort
     return (IATA_Code="ATL", dist=1.1,test=alle)   
 end
+
 
 
 end #end module Oboe
