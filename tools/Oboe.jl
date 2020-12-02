@@ -272,9 +272,7 @@ adding columns :DSG_AP_ID and :DSG_AP_DIST (DSG stands for “designated”)
 =#
 
 #= Distance
-Start with spherical coordinate angular distance,
-i.e., ~Euclidean-2 on geographic coordinates,
-or “haversine”/orthodromic/big-circle distance
+Starting “haversine”/orthodromic/big-circle distance
 Should get the almost true (ball vs. geoid)
 when coupled with Earth's radius, or rather, AP's and loc's altitudes
 CAVEAT: getting both altitudes is almost as bad 
@@ -287,11 +285,18 @@ const R_Earth= 6371
 #x and y are Union{AbstractVector{T}, NTuple{2, T}} where T<:Real
 myDist(x,y) = haversine(x,y,R_Earth)
 
-#=for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
-return the AP's code and the distance to it in km   =#
-function getNearestAP(nr=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
-    alle=[(myDist((nr.LAT,nr.LNG),(ap.LAT,ap.LNG)),ap.IATA_Code)  for ap ∈ eachrow(APs)] |> sort
-    return (dsg_IATA_Code=alle[1][2], dsg_dist=alle[1][1],allDists=alle)   
+#= Get Designated AP
+for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
+return the *nearest* AP's code and the distance to it in km   
+=#
+function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
+    alle=[(dst = myDist((node.LAT,node.LNG)
+            ,(ap.LAT,ap.LNG))
+            ,psg= ap.IN+ap.OUT
+            ,IN = ap.IN
+            ,OUT = ap.OUT
+            ,IATA_Code = ap.IATA_Code)  for ap ∈ eachrow(APs)] |> sort 
+    return (dsg=alle[1],all=alle)   
 end
 
 
