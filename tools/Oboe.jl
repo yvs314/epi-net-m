@@ -235,6 +235,14 @@ function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
         return out
     end
 
+#------BTS----CENSORING--------------------#
+
+#only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)
+function censorAggFlows(p=2500::Number,idf=pickCleanAPs()::DataFrame)
+    if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
+    filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
+end
+
 
 
 #===========INTERCONNECT===================#
@@ -288,6 +296,9 @@ myDist(x,y) = haversine(x,y,R_Earth)
 #= Get Designated AP
 for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
 return the *nearest* AP's code and the distance to it in km   
+
+NB: works slow-ish in Jupyter Notebook; might rework without sorting all this thing.
+say, I can keep about 5 nearest APs. Alternatively, just use fewer APs.
 =#
 function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
     alle=[(dst = myDist((node.LAT,node.LNG)
@@ -295,7 +306,8 @@ function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFra
             ,psg= ap.IN+ap.OUT
             ,IN = ap.IN
             ,OUT = ap.OUT
-            ,IATA_Code = ap.IATA_Code)  for ap ∈ eachrow(APs)] |> sort 
+            ,IATA_Code = ap.IATA_Code)  for ap ∈ eachrow(APs)] 
+    sort!(alle, by = first) # sort by distance to APs
     return (dsg=alle[1],all=alle)   
 end
 
