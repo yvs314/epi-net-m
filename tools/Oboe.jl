@@ -237,13 +237,17 @@ function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
 
 #------BTS----CENSORING--------------------#
 
+#TBD: enplanement is just OUT, so maybe not sum it with in.
+#TBD: rename to dropSmallAPs
 #only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)
 function censorAggFlows(p=2500::Number,idf=pickCleanAPs()::DataFrame)
     if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
     filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
 end
 
-
+#throw out the APs with missing IN or OUT enplanements
+scrubAPs(APs=mkAggFlows()::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
+,eachrow(APs)) |> DataFrame
 
 #===========INTERCONNECT===================#
 
@@ -258,16 +262,12 @@ function pickAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
 end
 
 #= pick just the “clean”  APs (no `missing`) from all in dfAPinfo
-TODO: add some cutoff
 CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
 recall that 0 was identified with `missing` in mkAggFlows()=
 Also remove missings from the :IN and :OUT
 =#
 function pickCleanAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
-    pickedAPs = pickAPs(myAPs,dfAPinfo)
-    uselessAPs=filter(row ->ismissing(row.OUT)||ismissing(row.IN)
-        ,eachrow(myAPs)) |> DataFrame
-    out  = antijoin(pickedAPs,uselessAPs,on=:IATA_Code)
+    pickAPs(myAPs,dfAPinfo) |> scrubAPs
 end
 
 #*****DESIGNATED***APs************#
