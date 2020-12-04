@@ -1,4 +1,4 @@
-#=
+"""
 Author: Yaroslav Salii, 2020.
 
 This is Oboe-Mangle, with a view to generate instances for testing
@@ -14,7 +14,8 @@ oboe-main.jl v.0.1: "From scripts to proper code" edition
              v.0.3: got as far as reading FluTE tracts
              v.0.4: added basic by-county and by-state IV aggregation
              v.0.5: join (intersect) BTS with OpenFlights
-=#
+             v.0.6: added designated AP assignment
+"""
 
 
 #module, not `include`, to prevent multiple inculdes (oh hi #ifndef)
@@ -34,7 +35,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.5"
+const callsign="This is Oboe v.0.6"
 #println(callsign)
 
 #=
@@ -75,6 +76,7 @@ global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 
 #===FluTE======READ=&=PROCESS===FluTE===TRACTS=============#
 # sample usage: Oboe.lsTracts()[4] |> Oboe.readFluteTract |> Oboe.aggBySte
+# a *node* (tract) must have the fields :Pop,:LAT,:LNG
 
 #show the FluTE's tract filenames found in ins.ifDir, default to fn
 function lsTracts(ins::NamingSpec = fn)
@@ -107,7 +109,7 @@ end
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
-function aggByCty(idf)
+function aggByCty(idf=readFluteTract()::DataFrame)
     by(idf,[:Ste,:Cty]) do byCty
 #define new rows through *named tuples*; preserves the types!
         (Pop=sum(byCty.Pop), LAT=mean(byCty.LAT), LNG=mean(byCty.LNG))
@@ -271,8 +273,8 @@ function pickCleanAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame
 end
 
 #*****DESIGNATED***APs************#
-#= This section aims to
-to each location, a row  [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
+#= 
+To each location, a row  [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
 assign an AP, a row [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country],
 identified by its :IATA_Code, 
 that is *nearest* to the location
@@ -297,20 +299,23 @@ myDist(x,y) = haversine(x,y,R_Earth)
 for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
 return the *nearest* AP's code and the distance to it in km   
 
-NB: works slow-ish in Jupyter Notebook; might rework without sorting all this thing.
+NB: worked slow-ish in Jupyter Notebook; might rework without sorting all this thing.
 say, I can keep about 5 nearest APs. Alternatively, just use fewer APs.
+UPD: this slow-down was probably due to lack of caching with arguments by default
 =#
 function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
     alle=[(dst = myDist((node.LAT,node.LNG)
             ,(ap.LAT,ap.LNG))
-            ,psg= ap.IN+ap.OUT
-            ,IN = ap.IN
-            ,OUT = ap.OUT
-            ,IATA_Code = ap.IATA_Code)  for ap ∈ eachrow(APs)] 
+            ,IATA_Code = ap.IATA_Code
+            ,psg= ap.IN+ap.OUT)  for ap ∈ eachrow(APs)] 
     sort!(alle, by = first) # sort by distance to APs
     return (dsg=alle[1],all=alle)   
 end
 
-
+# Apply getDsgAP to each node, and write that into its node
+function assignDsgAPs(nodes=aggBySte()::DataFrame,APs=censorAggFlows()::DataFrame)
+    dsgAPs = map(n -> Oboe.getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
+    hcat(nodes,dsgAPs)
+end
 
 end #end module Oboe
