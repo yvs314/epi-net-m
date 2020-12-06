@@ -84,7 +84,9 @@ function lsTracts(ins::NamingSpec = fn)
 end
 
 #= load a FluTE census tract info into a DataFrame,
-setting the types and colnames =#
+setting the types and colnames 
+Default to all-US tracts
+=#
 function readFluteTract(ifName::String=lsTracts()[4],ins::NamingSpec=fn)
     idf=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
@@ -272,14 +274,7 @@ function pickCleanAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame
     pickAPs(myAPs,dfAPinfo) |> scrubAPs
 end
 
-#*****DESIGNATED***APs************#
-#= 
-To each location, a row  [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
-assign an AP, a row [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country],
-identified by its :IATA_Code, 
-that is *nearest* to the location
-adding columns :DSG_AP_ID and :DSG_AP_DIST (DSG stands for “designated”)
-=#
+#----DESIGNATED---APs-----------#
 
 #= Distance
 Starting “haversine”/orthodromic/big-circle distance
@@ -296,11 +291,10 @@ const R_Earth= 6371
 myDist(x,y) = haversine(x,y,R_Earth)
 
 #= Get Designated AP
-for a row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
-return the *nearest* AP's code and the distance to it in km   
+for a node-row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
+return the *nearest* AP's :IATA_Code and the distance :dst to it in km   
 
 NB: worked slow-ish in Jupyter Notebook; might rework without sorting all this thing.
-say, I can keep about 5 nearest APs. Alternatively, just use fewer APs.
 UPD: this slow-down was probably due to lack of caching with arguments by default
 =#
 function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
@@ -316,6 +310,32 @@ end
 function assignDsgAPs(nodes=aggBySte()::DataFrame,APs=censorAggFlows()::DataFrame)
     dsgAPs = map(n -> Oboe.getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
     hcat(nodes,dsgAPs)
+end
+
+#----NODE-TO-NODE---PASSENGER--FLOWS----FROM--AP--DAILY--ENPLANEMENTS-----#
+#say how many people fly through each AP; default to per-county aggregation
+#`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
+function mkClusterPops(nodes=assignDsgAPs(aggByCty())::DataFrame)
+    by(nodes,[:IATA_Code]) do byDsgAP
+        #define new rows through *named tuples*; preserves the types!
+                (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
+            end
+      #return nodes
+end
+
+#GLEaM-like aggregation (lump together all nodes in AP's catchment area)
+#difference: some airports may get lost, whereas GLEaM starts with APs (gotta re-check that!)
+function aggByAPs(nodes=assignDsgAPs(readFluteTract())::DataFrame)
+    by(nodes,[:IATA_Code]) do byDsgAP
+        #define new rows through *named tuples*; preserves the types!
+                (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
+            end
+      #return nodes
+end
+
+#for a node `n`, the fraction of passengers in `dsg_n` to/from `n`
+function nodePsgShare()
+    return 0.0
 end
 
 end #end module Oboe
