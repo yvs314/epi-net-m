@@ -305,8 +305,11 @@ function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFra
     sort!(alle, by = first) # sort by distance to APs
     return (dsg=alle[1],all=alle)   
 end
-
-# Apply getDsgAP to each node, and write that into its node
+ 
+#= Assign a designated AP to each node in `nodes`, return a DF with info on both nodes and
+their designated APs, [:ID,:Pop,:LAT,:LNG,:IATA_Code]; :IATA_Code for the designated AP
+dbg columns: :dst distance to the dsg AP, :psg = :IN + :OUT passengers through dsg_AP
+=#
 function assignDsgAPs(nodes=aggBySte()::DataFrame,APs=censorAggFlows()::DataFrame)
     dsgAPs = map(n -> Oboe.getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
     hcat(nodes,dsgAPs)
@@ -320,7 +323,12 @@ function mkClusterPops(nodes=assignDsgAPs(aggByCty())::DataFrame)
         #define new rows through *named tuples*; preserves the types!
                 (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
             end
-      #return nodes
+end
+
+#make a `Dict` mapping AP's :IATA_Code to the :Pop of its *catchment area*
+function mkAP_pop_dict(nodes=assignDsgAPs(aggByCty())::DataFrame )
+    cache=mkClusterPops(nodes)
+    return Dict(cache.IATA_Code .=> cache.Pop)
 end
 
 #GLEaM-like aggregation (lump together all nodes in AP's catchment area)
@@ -330,11 +338,11 @@ function aggByAPs(nodes=assignDsgAPs(readFluteTract())::DataFrame)
         #define new rows through *named tuples*; preserves the types!
                 (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
             end
-      #return nodes
 end
 
-#for a node `n`, the fraction of passengers in `dsg_n` to/from `n`
-function nodePsgShare()
+
+#for a node `n`, the fraction of pop in `dsg_n`'s catchment area
+function nodePsgShare(node = aggBySte()[1,:]::DataFrameRow,dAP_pop::Dict)
     return 0.0
 end
 
