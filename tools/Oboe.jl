@@ -17,6 +17,7 @@ oboe-main.jl v.0.1: "From scripts to proper code" edition
              v.0.6: added designated AP assignment
 """
 
+#TODO: make debug defaults parameterized, via macros or otherwise
 
 #module, not `include`, to prevent multiple inculdes (oh hi #ifndef)
 module Oboe
@@ -316,17 +317,19 @@ function assignDsgAPs(nodes=aggBySte()::DataFrame,APs=censorAggFlows()::DataFram
 end
 
 #----NODE-TO-NODE---PASSENGER--FLOWS----FROM--AP--DAILY--ENPLANEMENTS-----#
+#CAVEAT: all nodes in this section must have a designated AP (:IATA_Code column)
+
 #say how many people fly through each AP; default to per-county aggregation
 #`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
-function mkClusterPops(nodes=assignDsgAPs(aggByCty())::DataFrame)
+function mkClusterPops(nodes=assignDsgAPs(aggBySte())::DataFrame)
     by(nodes,[:IATA_Code]) do byDsgAP
         #define new rows through *named tuples*; preserves the types!
                 (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
             end
 end
 
-#make a `Dict` mapping AP's :IATA_Code to the :Pop of its *catchment area*
-function mkAP_pop_dict(nodes=assignDsgAPs(aggByCty())::DataFrame )
+#make a `Dict` mapping each AP's ID (:IATA_Code) to the :Pop of its *catchment area*
+function mkAP_pop_dict(nodes=assignDsgAPs(aggBySte())::DataFrame )
     cache=mkClusterPops(nodes)
     return Dict(cache.IATA_Code .=> cache.Pop)
 end
@@ -334,16 +337,13 @@ end
 #GLEaM-like aggregation (lump together all nodes in AP's catchment area)
 #difference: some airports may get lost, whereas GLEaM starts with APs (gotta re-check that!)
 function aggByAPs(nodes=assignDsgAPs(readFluteTract())::DataFrame)
-    by(nodes,[:IATA_Code]) do byDsgAP
-        #define new rows through *named tuples*; preserves the types!
-                (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
-            end
+    return mkClusteredPops(nodes)
 end
 
 
 #for a node `n`, the fraction of pop in `dsg_n`'s catchment area
-function nodePsgShare(node = aggBySte()[1,:]::DataFrameRow,dAP_pop::Dict)
-    return 0.0
+function nodePsgShare(node = assignDsgAPs()[1,:]::DataFrameRow,dAP_pop=mkAP_pop_dict()::Dict)
+    return node.Pop / dAP_pop[node.IATA_Code]
 end
 
 end #end module Oboe
