@@ -334,16 +334,21 @@ function mkAP_pop_dict(nodes=assignDsgAPs(aggBySte())::DataFrame )
     return Dict(cache.IATA_Code .=> cache.Pop)
 end
 
-#GLEaM-like aggregation (lump together all nodes in AP's catchment area)
-#difference: some airports may get lost, whereas GLEaM starts with APs (gotta re-check that!)
-function aggByAPs(nodes=assignDsgAPs(readFluteTract())::DataFrame)
-    return mkClusteredPops(nodes)
+#GLEaM-like aggregation: lump together all nodes in AP's catchment area (start with `census tracts`)
+#difference with GLEaM: some airports may get lost, whereas GLEaM starts with APs (gotta re-check that!)
+function aggByAPs()
+    return assignDsgAPs(readFluteTract()) |> mkClusterPops
 end
 
 
 #for a node `n`, the fraction of pop in `dsg_n`'s catchment area
 function nodePsgShare(node = assignDsgAPs()[1,:]::DataFrameRow,dAP_pop=mkAP_pop_dict()::Dict)
     return node.Pop / dAP_pop[node.IATA_Code]
+end
+
+function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_pop_dict()::Dict)
+    psgShares = map(n -> Oboe.nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
+    out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
 end
 
 end #end module Oboe
