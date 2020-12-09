@@ -20,6 +20,7 @@ oboe-main.jl v.0.1: "From scripts to proper code" edition
 #TODO: make debug defaults parameterized, via macros or otherwise
 
 #module, not `include`, to prevent multiple inculdes (oh hi #ifndef)
+#submodules may be includes though, when I get to carve it up
 module Oboe
 
 
@@ -319,6 +320,7 @@ end
 #----NODE-TO-NODE---PASSENGER--FLOWS----FROM--AP--DAILY--ENPLANEMENTS-----#
 #CAVEAT: all nodes in this section must have a designated AP (:IATA_Code column)
 
+#------------AUX-----------#
 #say how many people fly through each AP; default to per-county aggregation
 #`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
 function mkClusterPops(nodes=assignDsgAPs(aggBySte())::DataFrame)
@@ -349,6 +351,18 @@ end
 function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_pop_dict()::Dict)
     psgShares = map(n -> Oboe.nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
     out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
+end
+
+#---------PASSENGER---FLOW---MATRIX----------------------#
+#NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
+function mkPsgMx(nodes=assignPsgShares()::DataFrame)
+    retAPs = nodes.IATA_Code #the APs that are designated for at least one `node`
+    #make a psg-flow matrix out of them; divide entries by 365 to get daily passengers
+    #retain only flights for retAPs
+    flowsCns = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
+    sort!(flowsCns,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
+    M = mkFlightInfo(flowsCns).dfFlow #and it doesn't work, fails when unstacking. WHY?
+    #return M
 end
 
 end #end module Oboe
