@@ -9,12 +9,12 @@ computational methods for networked epidemic models with data from
 Reading the FluTE data and transforming it to my input format.
 Might separate my input format definitions later.
 
-oboe-main.jl v.0.1: "From scripts to proper code" edition
-             v.0.2: switch to `module`
-             v.0.3: got as far as reading FluTE tracts
-             v.0.4: added basic by-county and by-state IV aggregation
-             v.0.5: join (intersect) BTS with OpenFlights
-             v.0.6: added designated AP assignment
+Oboe.jl v.0.1: "From scripts to proper code" edition
+        v.0.2: switch to `module`
+        v.0.3: got as far as reading FluTE tracts
+        v.0.4: added basic by-county and by-state IV aggregation
+        v.0.5: join (intersect) BTS with OpenFlights
+        v.0.6: added designated AP assignment
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
