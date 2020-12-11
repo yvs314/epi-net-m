@@ -211,12 +211,20 @@ to be inner-joined ⋂ with OpenFlights to get their coordinates =#
 function mkFlightInfo(idf=grpBTS()::DataFrame)
 #call the auxiliary function to get the `givenAPs` and flow matrix dfA
     tmp = mkMissingPairs(idf)
-#add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
+    #add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
+    #collect the :ORG-:DST pairs; `vcat` ensures ALL airports are listed in :ORG
+    #dfPairs=sort(vcat(idf,tmp.mRts),:ORG,:DST)  #also sort them lexicographically
     dfA=unstack(vcat(idf,tmp.mRts) |> sort, :ORG,:DST,:PSG)
     #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
-    if dfA[:,1] != map(string, names(dfA))[2:end]
-        error("Origin and destination names mismatch. Terminating.\n")
+    for i in 1:size(dfA,1)
+        if dfA[i,1] != string(names(dfA)[i+1])
+            error("Origin $(dfA[i,1]) and destination $(string(names(dfA)[i+1])) names mismatch. Terminating.\n")
+        end
     end
+
+    # if dfA[:,1] != map(string, names(dfA))[2:end]
+    #     error("Origin and destination names mismatch. Terminating.\n")
+    # end
     return (givenAPs=tmp.givenAPs,dfFlow=dfA)
 end
 
@@ -228,7 +236,7 @@ in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
 =#
 function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
     Mraw = convert(Matrix,dfFlow[:,2:end])
-    # identify `missing` with 0; set 0 everywhere
+    # identify `missing` passenger count with 0
     M = map( x -> ismissing(x) ? 0 : x, Mraw)
     out=DataFrame(IATA_Code=dfFlow[:,1]
     #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
