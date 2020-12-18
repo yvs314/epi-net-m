@@ -15,6 +15,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
         v.0.4: added basic by-county and by-state IV aggregation
         v.0.5: join (intersect) BTS with OpenFlights
         v.0.6: added designated AP assignment
+'20-12-18   v.0.7: wrote pairs-to-matrix xform by hand (vs. `unstack`, which was unpredictable)
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -37,7 +38,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.6"
+const callsign="This is Oboe v.0.7"
 #println(callsign)
 
 #=
@@ -228,6 +229,23 @@ function mkFlightInfo(idf=grpBTS()::DataFrame)
     return (givenAPs=tmp.givenAPs,dfFlow=dfA)
 end
 
+#input DF must have :ORG,:DST,:PSG cols
+#CAVEAT: missings are set to 0.0
+function mkFlightMx2(idf = grpBTS()::DataFrame)
+    orgAPs= [ row.ORG for row ∈ eachrow(idf)]
+    dstAPs = [ row.DST for row ∈ eachrow(idf)]
+    allAPs = orgAPs ∪ dstAPs |> sort #make sure they are sorted by name (:IATA_Code in fact)
+    dim = length(allAPs) #the matrix' will be [dim × dim]
+    ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
+    xis = zip(1:dim,allAPs) |> Dict #get name by index
+    #init the matrix with all 0.0, screw the missings, I am nullifying them anyway
+    outM = fill(0.0,(dim,dim))
+    #fill the matrix with the *known* values
+    [outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  for row ∈ eachrow(idf)]
+    
+    return (M= outM, ix=ixs,xi=xis)
+end
+
 #= take dFlow::[:ORG,:AP1,:AP2,...,AP_n], [n × (n+1)],
 a matrix-like `df`, with AP names in its 1st col, _[:,1]
 return a `df` out::[:IATA_Code,:FLOW,:IN,:OUT,:TOUR],
@@ -369,7 +387,8 @@ function mkPsgMx(nodes=assignPsgShares()::DataFrame)
     #retain only flights for retAPs
     flowsCns = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
     sort!(flowsCns,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
-    M = mkFlightInfo(flowsCns).dfFlow #and it doesn't work, fails when unstacking. WHY?
+    M = mkFlightMx2(flowsCns).M  #that's just a subset of AP-to-AP flow
+    map(x -> x/365,M) #move from yearly to daily averages; perhaps just drop <1 values
     #return M
 end
 
