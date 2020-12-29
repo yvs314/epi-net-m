@@ -381,23 +381,24 @@ end
 
 #---------PASSENGER---FLOW---MATRIX----------------------#
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
-#TODO: make usage of stopgap explicit
+#TODO: make usage of stopgap explicit, e.g. _(_;dbg=true) ... if dbg print("Debug info")
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
     retAPs = ns.IATA_Code #the APs that are designated for at least one `node`
-    println("Designated APs: ",retAPs)
     dim = nrow(ns) #final output matrix is [dim × dim]
     #retain only flights (tuples :ORG,:DST,PSG) for designated APs
     retFlows = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
     #=find all the designated APs that didn't make it into `flowCns` 
     because they had no connections to other designated APs (“isolated dsg APs”) =#
-    isolatedDsgAPs = filter( apID -> apID ∉ retFlows.ORG && apID ∉ retFlows.DST, retAPs)
+    isolatedAPs = filter( apID -> apID ∉ retFlows.ORG && apID ∉ retFlows.DST, retAPs)
     #report if there were *any* isolated designated APs
-    println("Found ", isolatedDsgAPs |> length," designated APs: ",isolatedDsgAPs)
+    println("Found ", isolatedAPs |> length," ISOLATED designated APs: ",isolatedAPs)
     #=now make dummy, 0-passenger flights from each of them to the 1st :DST AP in retFlows
-    to make sure `isolatedDsgAPs` appear in `outM`=#
-    sort!(retFlows,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
+    to make sure `isolatedAPs` appear in `outM`, and add them to retFlows=#
+    patchedFs = vcat(retFlows
+            , [(ORG=apID,DST=retFlows[1,:].DST,PSG=0.0) for apID in isolatedAPs] |> DataFrame)
+    sort!(patchedFs,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
     #get the AP-to-AP flows for the designated APs, with IATA_Code <-> Index 
-    aps = mkFlightMx2(retFlows)  
+    aps = mkFlightMx2(patchedFs)  
     map(x -> x/365,aps.M) #move from yearly to daily averages; perhaps just drop <1 values
     outM = fill(0.0, (dim,dim))
     for from in 1:dim
