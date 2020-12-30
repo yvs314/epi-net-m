@@ -231,6 +231,7 @@ end
 
 #input DF must have :ORG,:DST,:PSG cols
 #CAVEAT: missings are set to 0.0
+#TODO: consider dividing by 365 in here (annual -> daily passengers)
 function mkFlightMx2(idf = grpBTS()::DataFrame)
     orgAPs= [ row.ORG for row ∈ eachrow(idf)]
     dstAPs = [ row.DST for row ∈ eachrow(idf)]
@@ -399,14 +400,18 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     sort!(patchedFs,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
     #get the AP-to-AP flows for the designated APs, with IATA_Code <-> Index 
     aps = mkFlightMx2(patchedFs)  
-    map(x -> x/365,aps.M) #move from yearly to daily averages; perhaps just drop <1 values
+    A = map(x -> x/365,aps.M) #make avg. daily psg flows; perhaps just drop <1 values
     outM = fill(0.0, (dim,dim))
+    #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
     for from in 1:dim
         for to in 1:dim
             if ns[from,:].IATA_Code == ns[to,:].IATA_Code 
-                outM[from,to] = 0.0
-            else
-                outM[from,to] = aps.M[ aps.ix[ns.IATA_Code[from]]
+                #no air travel if nodes' designated APs match
+                outM[from,to] = 0.0 
+            else # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
+                outM[from,to] = ns.shr[from] *
+                                ns.shr[to] *
+                                A[ aps.ix[ns.IATA_Code[from]]
                                         ,aps.ix[ns.IATA_Code[to]] ]                                                        
             end
              
