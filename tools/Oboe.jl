@@ -16,6 +16,8 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
         v.0.5: join (intersect) BTS with OpenFlights
         v.0.6: added designated AP assignment
 '20-12-18   v.0.7: wrote pairs-to-matrix xform by hand (vs. `unstack`, which was unpredictable)
+'20-12-30   v.0.8: added a beta node-to-node daily air passenger computation
+'21-01-30   v.0.8.1: a half-baked Main(), look in bit bucket. Tested on 3K by-county!
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -38,7 +40,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.7"
+const callsign="This is Oboe v.0.8.1"
 #println(callsign)
 
 #=
@@ -423,7 +425,7 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     end
     return outM
     #return M
-end
+end #end mkPsgMx()
 
 end #end module Oboe
 
