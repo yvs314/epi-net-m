@@ -326,7 +326,7 @@ return the *nearest* AP's :IATA_Code and the distance :dst to it in km
 NB: worked slow-ish in Jupyter Notebook; might rework without sorting all this thing.
 UPD: this slow-down was probably due to lack of caching with arguments by default
 =#
-function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=pickCleanAPs()::DataFrame)
+function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=censorAggFlows()::DataFrame)
     alle=[(dst = myDist((node.LAT,node.LNG)
             ,(ap.LAT,ap.LNG))
             ,IATA_Code = ap.IATA_Code
@@ -357,6 +357,7 @@ function mkClusterPops(nodes=assignDsgAPs(aggBySte())::DataFrame)
             end
 end
 
+#TODO: consider leaving it *inside* `assignDsgAPs`, it has to be called anyway
 #make a `Dict` mapping each AP's ID (:IATA_Code) to the :Pop of its *catchment area*
 function mkAP_pop_dict(nodes=assignDsgAPs(aggBySte())::DataFrame )
     cache=mkClusterPops(nodes)
@@ -371,10 +372,13 @@ end
 
 
 #for a node `n`, the fraction of pop in `dsg_n`'s catchment area
+#the node MUST have an :IATA_Code column (its *designated AP*)
 function nodePsgShare(node = assignDsgAPs()[1,:]::DataFrameRow,dAP_pop=mkAP_pop_dict()::Dict)
     return node.Pop / dAP_pop[node.IATA_Code]
 end
 
+#apply the above to all nodes. 
+#each node MUST have an :IATA_Code column (its *designated AP*)
 function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_pop_dict()::Dict)
     psgShares = map(n -> Oboe.nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
     out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
@@ -384,7 +388,7 @@ end
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
 #TODO: make usage of stopgap explicit, e.g. _(_;dbg=true) ... if dbg print("Debug info")
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
-    retAPs = ns.IATA_Code #the APs that are designated for at least one `node`
+    retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
     dim = nrow(ns) #final output matrix is [dim × dim]
     #retain only flights (tuples :ORG,:DST,PSG) for designated APs
     retFlows = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
@@ -400,7 +404,7 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     sort!(patchedFs,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
     #get the AP-to-AP flows for the designated APs, with IATA_Code <-> Index 
     aps = mkFlightMx2(patchedFs)  
-    A = map(x -> x/365,aps.M) #make avg. daily psg flows; perhaps just drop <1 values
+    A = map(x -> x/365,aps.M) #make avg. daily ap-ap psg flows; perhaps just drop <1 values
     outM = fill(0.0, (dim,dim))
     #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
     for from in 1:dim
@@ -422,3 +426,30 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
 end
 
 end #end module Oboe
+
+
+#========BIT=====BUCKET===========#
+#-----MAIN---CODE------------#
+# #this piece is to be integrated through oboe-main.jl
+# myshow = obj -> println(first(obj,5))
+# #Oboe.mkPsgMx(Oboe.assignPsgShares(Oboe.assignDsgAPs()))
+# #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
+# pBTS = Oboe.grpBTS() 
+# pBTS |> myshow
+# #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
+# APs = Oboe.censorAggFlows() # 
+# APs |> myshow
+# #by-county aggregation at start, ~3K nodes. The only real index is the row number.
+# nsRaw= Oboe.aggByCty() 
+# nsRaw |> myshow
+# #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
+# ns = Oboe.assignDsgAPs(nsRaw,APs) 
+# #first(ns,5) |> print
+# ns |> myshow
+# #now find the :Pop of each APs' catchment area, and chuck that into a `Dict`
+# d = Oboe.mkAP_pop_dict(ns) #406 APs end up `designated` for aggByCty, not bad
+# #go on, compute the nodes' passenger shares (add the :shr col), with `d` in mind
+# ns2 = Oboe.assignPsgShares(ns,d)
+# ns2 |> myshow
+# #finally, compute NODE-NODE daily air passengers
+# nnPsg=Oboe.mkPsgMx(ns2)
