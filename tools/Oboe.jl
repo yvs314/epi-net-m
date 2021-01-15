@@ -17,7 +17,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
         v.0.6: added designated AP assignment
 '20-12-18   v.0.7: wrote pairs-to-matrix xform by hand (vs. `unstack`, which was unpredictable)
 '20-12-30   v.0.8: added a beta node-to-node daily air passenger computation
-'21-01-30   v.0.8.1: a half-baked Main(), look in bit bucket. Tested on 3K by-county!
+'21-01-03   v.0.8.1: a half-baked Main(), look in bit bucket. Tested on 3K by-county!
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -92,13 +92,16 @@ end
 setting the types and colnames 
 Default to all-US tracts
 =#
-function readFluteTract(ifName::String=lsTracts()[4],ins::NamingSpec=fn)
+function readFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"usa"),lsTracts())],
+            ins::NamingSpec=fn)
     idf=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
     names!(idf, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
     return idf
 end
+
+
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
 #= testing by-state aggregation,
@@ -411,10 +414,8 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
     for from in 1:dim
         for to in 1:dim
-            if ns[from,:].IATA_Code == ns[to,:].IATA_Code 
-                #no air travel if nodes' designated APs match
-                outM[from,to] = 0.0 
-            else # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
+            if ns[from,:].IATA_Code ≠ ns[to,:].IATA_Code #no air travel unless dsg APs are different
+             # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
                 outM[from,to] = ns.shr[from] *
                                 ns.shr[to] *
                                 A[ aps.ix[ns.IATA_Code[from]]
