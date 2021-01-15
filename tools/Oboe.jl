@@ -412,20 +412,17 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     A = map(x -> x/365,aps.M) #make avg. daily ap-ap psg flows; perhaps just drop <1 values
     outM = fill(0.0, (dim,dim))
     #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
-    for from in 1:dim
-        for to in 1:dim
-            if ns[from,:].IATA_Code ≠ ns[to,:].IATA_Code #no air travel unless dsg APs are different
-             # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
-                outM[from,to] = ns.shr[from] *
-                                ns.shr[to] *
-                                A[ aps.ix[ns.IATA_Code[from]]
-                                        ,aps.ix[ns.IATA_Code[to]] ]                                                        
-            end
-             
+    for from ∈ 1:dim, to ∈ 1:dim
+        if ns[from,:].IATA_Code ≠ ns[to,:].IATA_Code #no air travel unless dsg APs are different
+            # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
+            outM[from,to] = ns.shr[from] *
+                            ns.shr[to] *
+                            A[ aps.ix[ns.IATA_Code[from]]
+                                    ,aps.ix[ns.IATA_Code[to]] ]                                                        
         end
-    end
+    end 
     return outM
-    #return M
+
 end #end mkPsgMx()
 
 end #end module Oboe
