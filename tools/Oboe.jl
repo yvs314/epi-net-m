@@ -425,10 +425,59 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
 
 end #end mkPsgMx()
 
+
+
+
+
+#=========AUX---DBG==================#
+#= This section has the functions I don't intend to move to production, which, however,
+are useful enough to be pulled from disparate notebooks
+
+Might leave them babbling out of stdout/stderr though
+=#
+
+#input: a square matrix of numbers; might add type-checking later
+function talkDnsy(M)
+    #no. ≠0 entries
+    a=filter(x -> x> 0.0, M) |> length
+    dim = size(M,1)
+    b = dim*(dim-1) #max no. ≠0 connections
+    dnsy = a/b
+    println("We've got ",a," ≠0 connections")
+    println("With at most ",b, " ≠0 entries, we get the density ",dnsy)
+    #print("The density is ",filter(x -> x> 0.0, M) |> le )
+    return(nnonzero = a, maxnonzero= b, density = dnsy, dim = size(M,1))
+end
+
 end #end module Oboe
 
 
 #========BIT=====BUCKET===========#
+
+#------FluTE--WF---READ--AND--TIDY--------#
+# fipsNW = ["41","53"] #just Oregon and Washington
+
+# wf_by_FIPS(fips::String) = "usa-wf-$fips.dat"
+# wf_by_FIPS("53") |> println
+# wfs = map(wf_by_FIPS, fipsNW)
+# println(wfs)
+# #read these filenames from Oboe.fn.ifDir into a DataFrame each
+# wfs2 = [CSV.File(ipath, 
+#         header = false,
+#         types =[String,String,String,String,String,String,Int64]) |> 
+#     DataFrame for ipath in map(f -> joinpath(Oboe.fn.ifDir,f), wfs)]
+# map(myshow, wfs2)
+
+# #a commute is to keep if (a) commute's to `fipsNW` && (b) it's not *reflexive*
+# to_keep(r) = r[4] ∈ fipsNW && r[3]≠r[6]
+
+# wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
+# wfs3 .|> myshow
+
+# #and now just add *all* of them on top of each other, assuming there's more than 1
+# wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3
+
+
 #-----MAIN---CODE------------#
 # #this piece is to be integrated through oboe-main.jl
 # myshow = obj -> println(first(obj,5))
@@ -452,4 +501,4 @@ end #end module Oboe
 # ns2 = Oboe.assignPsgShares(ns,d)
 # ns2 |> myshow
 # #finally, compute NODE-NODE daily air passengers
-# nnPsg=Oboe.mkPsgMx(ns2)
+# M=Oboe.mkPsgMx(ns2)
