@@ -473,11 +473,17 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     return wfs4
 end
 
-
 #--------COMMUTER---FLOW---MATRIX--------------#
 
 
-
+function mkCmtMx(ns::DataFrame,wfs::DataFrame)
+    if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
+        error("Wrong DF! Terminating.")
+    end
+    dim = nrow(ns)
+    outM = fill(0.0,(dim,dim))
+    return outM
+end
 
 
 
