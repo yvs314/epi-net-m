@@ -433,7 +433,7 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
 
 end #end mkPsgMx()
 
-#-------COMMUTER---FLOW---MATRIX----------------------------#
+#-------COMMUTER---FLOW--------------------#
 
 # dim = length(allAPs) #the matrix' will be [dim × dim]
 # ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
@@ -444,6 +444,41 @@ end #end mkPsgMx()
 # [outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  for row ∈ eachrow(idf)]
 
 # return (M= outM, ix=ixs,xi=xis)
+
+
+#read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
+function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
+    #generate FluTE filename by State's FIPS
+    wf_by_FIPS(fips::String) = "usa-wf-$fips.dat"
+    
+    wfs = map(wf_by_FIPS, fipss)
+    wfs2 = [CSV.File(ipath, 
+        header = false,
+        types =[String,String,String,String,String,String,Int64]) |> 
+    DataFrame for ipath in map(f -> joinpath(ins.ifDir,f), wfs)]
+
+    to_keep(r) = r[4] ∈ fipss && r[3]≠r[6]
+    #TIDY: retain only the commute between states in `fipss`
+    wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
+    wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3 #add them all together
+    #combine the State,County,Tract triples into single columns
+    insertcols!(wfs4, 1, 
+        ORG = map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
+    insertcols!(wfs4, 2, 
+        DST = map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
+    rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
+    select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
+    sort!(wfs4,[:ORG,:DST])
+
+    return wfs4
+end
+
+
+#--------COMMUTER---FLOW---MATRIX--------------#
+
+
+
+
 
 
 #=========AUX---DBG==================#
