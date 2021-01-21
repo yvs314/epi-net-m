@@ -80,7 +80,7 @@ global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 
 
 #===FluTE======READ=&=PROCESS===FluTE===TRACTS=============#
-# sample usage: Oboe.lsTracts()[4] |> Oboe.readFluteTract |> Oboe.aggBySte
+# sample usage: Oboe.lsTracts()[4] |> Oboe.rdFluteTract |> Oboe.aggBySte
 # a *node* (tract) must have the fields :Pop,:LAT,:LNG
 
 #show the FluTE's tract filenames found in ins.ifDir, default to fn
@@ -90,25 +90,33 @@ end
 
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames 
-Default to all-US tracts
+Default to NW tracts (Oregon + Washington)
 =#
-function readFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"usa"),lsTracts())],
+function rdFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~NW"),lsTracts())],
             ins::NamingSpec=fn)
     idf=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
     names!(idf, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
+    idf.Name = map((s,z,w)-> join([s,z,w],"~"),idf.Ste,idf.Cty,idf.Tra)
     return idf
 end
 
-
+#single ID column instead of :Ste,:Cty,:Tra
+# function rdFluteTractID(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~NW"),lsTracts())],
+#     ins::NamingSpec=fn)
+#     idf = rdFluteTract(ifName,ins) #delegate to the above
+#     idf.Name = map((s,z,w)-> join([s,z,w],"~"),idf.Ste,idf.Cty,idf.Tra)
+#     return idf
+# end
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
 #= testing by-state aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
+TODO: put the by--end output into a variable and add post-processing (adding the ID)
 =#
-function aggBySte(idf=readFluteTract()::DataFrame)
+function aggBySte(idf=rdFluteTract()::DataFrame)
     by(idf,[:Ste]) do bySte
 #define new rows through *named tuples*; preserves the types!
         (Pop=sum(bySte.Pop), LAT=mean(bySte.LAT), LNG=mean(bySte.LNG))
@@ -119,7 +127,7 @@ end
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
-function aggByCty(idf=readFluteTract()::DataFrame)
+function aggByCty(idf=rdFluteTract()::DataFrame)
     by(idf,[:Ste,:Cty]) do byCty
 #define new rows through *named tuples*; preserves the types!
         (Pop=sum(byCty.Pop), LAT=mean(byCty.LAT), LNG=mean(byCty.LNG))
@@ -353,7 +361,7 @@ end
 #CAVEAT: all nodes in this section must have a designated AP (:IATA_Code column)
 
 #------------AUX-----------#
-#say how many people fly through each AP; default to per-county aggregation
+#say how many people fly through each AP; default to per-state aggregation
 #`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
 function mkClusterPops(nodes=assignDsgAPs(aggBySte())::DataFrame)
     by(nodes,[:IATA_Code]) do byDsgAP
@@ -372,7 +380,7 @@ end
 #GLEaM-like aggregation: lump together all nodes in AP's catchment area (start with `census tracts`)
 #difference with GLEaM: some airports may get lost, whereas GLEaM starts with APs (gotta re-check that!)
 function aggByAPs()
-    return assignDsgAPs(readFluteTract()) |> mkClusterPops
+    return assignDsgAPs(rdFluteTract()) |> mkClusterPops
 end
 
 
@@ -389,7 +397,7 @@ function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_
     out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
 end
 
-#---------PASSENGER---FLOW---MATRIX----------------------#
+#------AIR---PASSENGER---FLOW---MATRIX----------------------#
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
 #TODO: make usage of stopgap explicit, e.g. _(_;dbg=true) ... if dbg print("Debug info")
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
@@ -425,8 +433,17 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
 
 end #end mkPsgMx()
 
+#-------COMMUTER---FLOW---MATRIX----------------------------#
 
+# dim = length(allAPs) #the matrix' will be [dim × dim]
+# ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
+# xis = zip(1:dim,allAPs) |> Dict #get name by index
+# #init the matrix with all 0.0, screw the missings, I am nullifying them anyway
+# outM = fill(0.0,(dim,dim))
+# #fill the matrix with the *known* values
+# [outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  for row ∈ eachrow(idf)]
 
+# return (M= outM, ix=ixs,xi=xis)
 
 
 #=========AUX---DBG==================#
