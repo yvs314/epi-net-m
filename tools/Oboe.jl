@@ -1,7 +1,7 @@
 """
 Author: Yaroslav Salii, 2020.
 
-This is Oboe-Mangle, with a view to generate instances for testing
+This is Oboe-Mangle, or maybe Arshyn, with a view to generate instances for testing
 computational methods for networked epidemic models with data from
     (a) FluTE/US 2010 Census Tracts (population, coordinates); github.com/dlchao/FluTE
     (b) US 2019+ Domestic Flights, available from BTS
@@ -18,6 +18,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '20-12-18   v.0.7: wrote pairs-to-matrix xform by hand (vs. `unstack`, which was unpredictable)
 '20-12-30   v.0.8: added a beta node-to-node daily air passenger computation
 '21-01-03   v.0.8.1: a half-baked Main(), look in bit bucket. Tested on 3K by-county!
+'21-01-22   v.0.9: air travel and commute matrices are in, tested on 2K NW (by-tract)
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -458,7 +459,7 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     DataFrame for ipath in map(f -> joinpath(ins.ifDir,f), wfs)]
 
     to_keep(r) = r[4] ∈ fipss && r[3]≠r[6]
-    #TIDY: retain only the commute between states in `fipss`
+    #TIDY: retain only the commute between states in `fipss`; this chucks the REFLEXIVE commute
     wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
     wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3 #add them all together
     #combine the State,County,Tract triples into single columns
@@ -480,8 +481,14 @@ function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
         error("Wrong DF! Terminating.")
     end
-    dim = nrow(ns)
-    outM = fill(0.0,(dim,dim))
+    dim = nrow(ns) 
+    outM = fill(0.0,(dim,dim)) #commute matrix, node-to-node, ordered as `ns`
+    ixs = zip(ns.Name, 1:dim) |> Dict #get index by name
+    xis = zip(1:dim, ns.Name) |> Dict #get name by index
+    for trip ∈ eachrow(wfs) #doggedly fill each trip into the matrix
+        outM[ixs[trip.ORG],ixs[trip.DST]]=trip.CMT
+    end #reflexive commute is removed beforehand
+
     return outM
 end
 
@@ -512,42 +519,19 @@ end #end module Oboe
 
 #========BIT=====BUCKET===========#
 
-#------FluTE--WF---READ--AND--TIDY--------#
-# fipsNW = ["41","53"] #just Oregon and Washington
-
-# wf_by_FIPS(fips::String) = "usa-wf-$fips.dat"
-# wf_by_FIPS("53") |> println
-# wfs = map(wf_by_FIPS, fipsNW)
-# println(wfs)
-# #read these filenames from Oboe.fn.ifDir into a DataFrame each
-# wfs2 = [CSV.File(ipath, 
-#         header = false,
-#         types =[String,String,String,String,String,String,Int64]) |> 
-#     DataFrame for ipath in map(f -> joinpath(Oboe.fn.ifDir,f), wfs)]
-# map(myshow, wfs2)
-
-# #a commute is to keep if (a) commute's to `fipsNW` && (b) it's not *reflexive*
-# to_keep(r) = r[4] ∈ fipsNW && r[3]≠r[6]
-
-# wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
-# wfs3 .|> myshow
-
-# #and now just add *all* of them on top of each other, assuming there's more than 1
-# wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3
-
 
 #-----MAIN---CODE------------#
 # #this piece is to be integrated through oboe-main.jl
 # myshow = obj -> println(first(obj,5))
-# #Oboe.mkPsgMx(Oboe.assignPsgShares(Oboe.assignDsgAPs()))
-# #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
+# Oboe.mkPsgMx(Oboe.assignPsgShares(Oboe.assignDsgAPs()))
+# all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
 # pBTS = Oboe.grpBTS() 
 # pBTS |> myshow
 # #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
 # APs = Oboe.censorAggFlows() # 
 # APs |> myshow
-# #by-county aggregation at start, ~3K nodes. The only real index is the row number.
-# nsRaw= Oboe.aggByCty() 
+# #read the Northwest (OR,WA) census tracts
+# nsRaw= Oboe.rdFluteTract("a~NW" * Oboe.fn.sep * Oboe.fn.fltInitSuff )
 # nsRaw |> myshow
 # #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
 # ns = Oboe.assignDsgAPs(nsRaw,APs) 
@@ -559,4 +543,9 @@ end #end module Oboe
 # ns2 = Oboe.assignPsgShares(ns,d)
 # ns2 |> myshow
 # #finally, compute NODE-NODE daily air passengers
-# M=Oboe.mkPsgMx(ns2)
+# nnPsg=Oboe.mkPsgMx(ns2)
+
+
+# fipsNW=["41","53"]
+# iwfs=Oboe.rdTidyWfsByFIPS(fipsNW)
+# nnCmtMx = Oboe.mkCmtMx(ns2,iwfs)
