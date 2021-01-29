@@ -41,7 +41,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.8.1"
+const callsign="This is Oboe v.0.9"
 #println(callsign)
 
 #=
@@ -98,7 +98,7 @@ function rdFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~N
     idf=CSV.File(joinpath(ins.ifDir,ifName)
     ,header=false
     ,types=[String,String,String,Int64,Float64,Float64]) |> DataFrame
-    names!(idf, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
+    rename!(idf, [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG])
     idf.Name = map((s,z,w)-> join([s,z,w],"~"),idf.Ste,idf.Cty,idf.Tra)
     return idf
 end
@@ -154,7 +154,7 @@ TODO: resolve this caveat
 =#
 function rdAPs(ifName=ifAPs::String)
     out=CSV.File(ifName,header=false) |> DataFrame
-    names!(out, apAllColNames)
+    rename!(out, apAllColNames)
     #retain only the useful columns
     select!(out,apRetainedColNames)
 end
@@ -172,8 +172,8 @@ function rdBTS(ifName=ifBTS::String)
     else #∃ non-integer passengers-per-year entry
         error("CAVEAT: *non-integer* PASSENGERS in Flights input.")
     end
-    names!(rawBTS,[:PSG,:ORG,:DST])
-    return rawBTS[[:ORG,:DST,:PSG]] #
+    rename!(rawBTS,[:PSG,:ORG,:DST])
+    return select(rawBTS,[:ORG,:DST,:PSG]) #
 end
 
 
@@ -181,16 +181,12 @@ end
 
 #=
 sum the passengers on the flights with same (ORG,DST) pairs
-(moves Passengers to the 3rd column)
 sort lexicographically in (ORG,DST) order
-set the column names to [:ORG,:DST,:PSG]
 final output is the air travel graph as a *list of edges*
 =#
 function grpBTS(idf=rdBTS()::DataFrame)
-    out = by(idf, [:ORG,:DST]) do flights
-        [sum(flights.PSG)]
-    end
-    names!(out, [:ORG,:DST,:PSG]) #restore :PSG's name from :x1
+    gd = groupby(idf,[:ORG,:DST])
+    out  = combine(gd,:PSG => sum, renamecols = false)
     sort!(out,[:ORG,:DST]) #sort by departure/arrival AP names
 end
 
@@ -202,18 +198,18 @@ and also “all-pairs”, idf.ORG ⋃ idf.DST
 =#
 function mkMissingPairs(idf::DataFrame)
     #pick :ORG and :DST APs, sort them, and set col name to :IATA_Code
-    uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
-    uDsts = select(idf, :DST) |> unique |> sort |> (df -> names!(df,[:IATA_Code]))
+    uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> rename!(df,[:IATA_Code]))
+    uDsts = select(idf, :DST) |> unique |> sort |> (df -> rename!(df,[:IATA_Code]))
 #list all APs *mentioned*, whether normal, reflexive, or in/out-only
 #outer join: orgs ⋃ dsts    
-    allAPs = join(uOrgs,uDsts, on = :IATA_Code, kind = :outer) |> sort
+    allAPs = outerjoin(uOrgs,uDsts; on = :IATA_Code) |> sort
 # missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
-    mOrgs = join(allAPs,uOrgs, on = :IATA_Code, kind = :anti)
+    mOrgs = antijoin(allAPs,uOrgs; on = :IATA_Code)
 # missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
-    mDsts = join(allAPs,uDsts, on = :IATA_Code, kind = :anti)
+    mDsts = antijoin(allAPs,uDsts; on = :IATA_Code)
 #make up the missing (:ORG,:DST) pairs, i.e., mOrgs × mDests
-    odf = join(mOrgs,mDsts, kind = :cross, makeunique=true)
-    names!(odf,[:ORG,:DST]) #restore the [:ORG,:DST] names
+    odf = crossjoin(mOrgs,mDsts; makeunique=true)
+    rename!(odf,[:ORG,:DST]) #restore the [:ORG,:DST] names
     #add the dummy :PSG column (all `missing`), after :ORG and :DST
     insertcols!(odf,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(odf)))
     return (mRts=odf,givenAPs=allAPs)
