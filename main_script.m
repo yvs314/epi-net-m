@@ -26,20 +26,22 @@ clc ; clear all; close all;
 %% Set/Read the System Parameters
 
 %set the instance location
-%instDir="data/by-tract"; %by-tract are FluTE-derived, larger instances
-instDir="data"; %just the small airport-derived cases here
+instDir="data/by-tract"; %by-tract are FluTE-derived, larger instances
+%instDir="data"; %just the small airport-derived cases here
 
 %initial values instances have the form $instName-init.csv
 
 %set the instance name
-%instName="seattle_124"; %the smallest non-singleton of the FluTe-derived
-%instName="la_2049"; %a larger FluTe-derived instance
-instName="first_4"; %toy 4-city AP-derived instance, Atlanta, Boston, Charlotteville, Denver
+%instName="seattle_124"; %the smallest non-singleton of the FluTE-derived
+%instName="la_2049"; %a larger FluTE-derived instance
+instName="a~NW_2072"; %Oregon + Washington, with flights & commute
+%instName="first_4"; %toy 4-city AP-derived instance, Atlanta, Boston, Charlotteville, Denver
 
 
 % if false, use eps_one coupling
 % if true, read the daily passengers table from $instName-flug.dat
-useFlightData=false;
+useFlightData=true;
+%useFlightData=false;
 
 % Set the number of "non-terminal" compartments
 % i.e., the number of all but the final R (recovered/removed) compartment
