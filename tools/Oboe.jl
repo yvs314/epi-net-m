@@ -1,5 +1,5 @@
 """
-Author: Yaroslav Salii, 2020.
+Author: Yaroslav Salii, 2020+.
 
 This is Oboe-Mangle, or maybe Arshyn, with a view to generate instances for testing
 computational methods for networked epidemic models with data from
@@ -20,6 +20,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-01-03   v.0.8.1: a half-baked Main(), look in bit bucket. Tested on 3K by-county!
 '21-01-22   v.0.9: air travel and commute matrices are in, tested on 2K NW (by-tract)
 '21-02-02   v.0.9.1: hotfix, removing deprecated `by`, `names!`, and the like (half-done)
+'21-02-02   v.0.9.2: removed all the deprecated stuff, and it all works again
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -42,7 +43,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.1"
+const callsign="This is Oboe v.0.9.2"
 #println(callsign)
 
 #=
@@ -104,6 +105,12 @@ function rdFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~N
     return idf
 end
 
+# read the FluTE's all-US-by-tract instance (usa-tracts.dat)
+function rdWholeUS(ins::NamingSpec=fn)
+    ifName = filter(s -> split(s,"-")[1]=="usa",lsTracts(ins) )[1]
+    rdFluteTract(ifName,ins)
+end
+
 #single ID column instead of :Ste,:Cty,:Tra
 # function rdFluteTractID(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~NW"),lsTracts())],
 #     ins::NamingSpec=fn)
@@ -113,27 +120,23 @@ end
 # end
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
-#= testing by-state aggregation,
+#= by-state PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 TODO: put the by--end output into a variable and add post-processing (adding the ID)
 =#
 function aggBySte(idf=rdFluteTract()::DataFrame)
-    by(idf,[:Ste]) do bySte
-#define new rows through *named tuples*; preserves the types!
-        (Pop=sum(bySte.Pop), LAT=mean(bySte.LAT), LNG=mean(bySte.LNG))
-    end
+    gd = groupby(idf,[:Ste]) #group by U.S. State FIPS
+    out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
 end
 
-#= testing by-county aggregation,
+#= by-county PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
 function aggByCty(idf=rdFluteTract()::DataFrame)
-    by(idf,[:Ste,:Cty]) do byCty
-#define new rows through *named tuples*; preserves the types!
-        (Pop=sum(byCty.Pop), LAT=mean(byCty.LAT), LNG=mean(byCty.LNG))
-    end
+    gd = groupby(idf,[:Ste,:Cty]) #group by U.S. County FIPS, within the same State FIPS 
+    out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
 end
 
 #=======WORKING===WITH===AIRPORTS====================#
@@ -313,10 +316,11 @@ end
 #say how many people fly through each AP; default to per-state aggregation
 #`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
 function mkClusterPops(nodes=assignDsgAPs(aggBySte())::DataFrame)
-    by(nodes,[:IATA_Code]) do byDsgAP
-        #define new rows through *named tuples*; preserves the types!
-                (Pop=sum(byDsgAP.Pop), LAT=mean(byDsgAP.LAT), LNG=mean(byDsgAP.LNG))
-            end
+    #group by the same designated AP: each group is this AP's __catchment area__
+    gd = groupby(nodes,[:IATA_Code]) 
+    #= the prime here is Σpopulation by designated AP, 
+    but it's also a clusterization so here's `mean` :LAT and :LNG as dumb centroids =#
+    out = combine(gd,:Pop => sum, :LAT => mean, :LNG => mean,renamecols = false)
 end
 
 #TODO: consider leaving it *inside* `assignDsgAPs`, it has to be called anyway
