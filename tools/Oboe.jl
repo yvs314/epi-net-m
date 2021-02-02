@@ -19,6 +19,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '20-12-30   v.0.8: added a beta node-to-node daily air passenger computation
 '21-01-03   v.0.8.1: a half-baked Main(), look in bit bucket. Tested on 3K by-county!
 '21-01-22   v.0.9: air travel and commute matrices are in, tested on 2K NW (by-tract)
+'21-02-02   v.0.9.1: hotfix, removing deprecated `by`, `names!`, and the like (half-done)
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -41,7 +42,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9"
+const callsign="This is Oboe v.0.9.1"
 #println(callsign)
 
 #=
@@ -190,93 +191,44 @@ function grpBTS(idf=rdBTS()::DataFrame)
     sort!(out,[:ORG,:DST]) #sort by departure/arrival AP names
 end
 
-#=
-Take idf::[:ORG,:DST,:PSG], return the “missing pairs” such that 
-∀i: out[i,_,_] (i ∉ idf.ORG) ∧ (i ∈ idf.DST)
-∀j: out[_,j,_] (j ∉ idf.DST) ∧ (i ∈ idf.ORG)
-and also “all-pairs”, idf.ORG ⋃ idf.DST 
-=#
-function mkMissingPairs(idf::DataFrame)
-    #pick :ORG and :DST APs, sort them, and set col name to :IATA_Code
-    uOrgs = select(idf, :ORG) |> unique |> sort |> (df -> rename!(df,[:IATA_Code]))
-    uDsts = select(idf, :DST) |> unique |> sort |> (df -> rename!(df,[:IATA_Code]))
-#list all APs *mentioned*, whether normal, reflexive, or in/out-only
-#outer join: orgs ⋃ dsts    
-    allAPs = outerjoin(uOrgs,uDsts; on = :IATA_Code) |> sort
-# missing origins: allAPs ∖ uOrgs; :anti-join for ∖setminus
-    mOrgs = antijoin(allAPs,uOrgs; on = :IATA_Code)
-# missing dests: allAPs ∖ uDsts; :anti-join for ∖setminus
-    mDsts = antijoin(allAPs,uDsts; on = :IATA_Code)
-#make up the missing (:ORG,:DST) pairs, i.e., mOrgs × mDests
-    odf = crossjoin(mOrgs,mDsts; makeunique=true)
-    rename!(odf,[:ORG,:DST]) #restore the [:ORG,:DST] names
-    #add the dummy :PSG column (all `missing`), after :ORG and :DST
-    insertcols!(odf,3,:PSG => repeat([missing::Union{Int64,Missing}], nrow(odf)))
-    return (mRts=odf,givenAPs=allAPs)
-end
-
-
-
-#= returns `givenAPs`, a 1-col DataFrame with all AP codes present in input
-to be inner-joined ⋂ with OpenFlights to get their coordinates =#
-function mkFlightInfo(idf=grpBTS()::DataFrame)
-#call the auxiliary function to get the `givenAPs` and flow matrix dfA
-    tmp = mkMissingPairs(idf)
-    #add `mRts` to `idf` and transform list-of-pairs `idf` into an “adj.mx”
-    #collect the :ORG-:DST pairs; `vcat` ensures ALL airports are listed in :ORG
-    #dfPairs=sort(vcat(idf,tmp.mRts),:ORG,:DST)  #also sort them lexicographically
-    dfA=unstack(vcat(idf,tmp.mRts) |> sort, :ORG,:DST,:PSG)
-    #sanity check: :ORGs _[:,1] and :DSTs names(_)[2:end] are equal as sequences
-    for i in 1:size(dfA,1)
-        if dfA[i,1] != string(names(dfA)[i+1])
-            error("Origin $(dfA[i,1]) and destination $(string(names(dfA)[i+1])) names mismatch. Terminating.\n")
-        end
-    end
-
-    # if dfA[:,1] != map(string, names(dfA))[2:end]
-    #     error("Origin and destination names mismatch. Terminating.\n")
-    # end
-    return (givenAPs=tmp.givenAPs,dfFlow=dfA)
-end
 
 #input DF must have :ORG,:DST,:PSG cols
 #CAVEAT: missings are set to 0.0
-#TODO: consider dividing by 365 in here (annual -> daily passengers)
-function mkFlightMx2(idf = grpBTS()::DataFrame)
+function mkFlightMx2(idf = grpBTS()::DataFrame; init_to = 0.0::Number)
     orgAPs= [ row.ORG for row ∈ eachrow(idf)]
     dstAPs = [ row.DST for row ∈ eachrow(idf)]
     allAPs = orgAPs ∪ dstAPs |> sort #make sure they are sorted by name (:IATA_Code in fact)
     dim = length(allAPs) #the matrix' will be [dim × dim]
     ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
     xis = zip(1:dim,allAPs) |> Dict #get name by index
-    #init the matrix with all 0.0, screw the missings, I am nullifying them anyway
-    outM = fill(0.0,(dim,dim))
+    #init the matrix with all init_to, defaulting to 0.0: screw the missings, I am nullifying them anyway
+    outM = fill(init_to,(dim,dim))
     #fill the matrix with the *known* values
-    [outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  for row ∈ eachrow(idf)]
+    for row ∈ eachrow(idf)
+        outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  
+    end
     
-    return (M= outM, ix=ixs,xi=xis)
+    return (M= outM, ix=ixs,xi=xis,apCodes=DataFrame(IATA_Code=allAPs))
 end
 
-#= take dFlow::[:ORG,:AP1,:AP2,...,AP_n], [n × (n+1)],
-a matrix-like `df`, with AP names in its 1st col, _[:,1]
-return a `df` out::[:IATA_Code,:FLOW,:IN,:OUT,:TOUR],
-with :FLW=:IN+:OUT,:IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
+#=
+in: apCodes [:IATA_Code], 
+output: a `df` [:IATA_Code,:IN,:OUT,:TOUR],
+with :IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
 in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
+(opt) :TTL=:IN+:OUT,
 =#
-function mkAggFlows(dfFlow=mkFlightInfo().dfFlow::DataFrame)
-    Mraw = convert(Matrix,dfFlow[:,2:end])
-    # identify `missing` passenger count with 0
-    M = map( x -> ismissing(x) ? 0 : x, Mraw)
-    out=DataFrame(IATA_Code=dfFlow[:,1]
+function mkAggFlows2(apCodes::DataFrame=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
+        out=DataFrame(IATA_Code=apCodes.IATA_Code
     #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
         ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
     #row-wise total sans the reflexive, `missing` if the departures are only reflexive
         ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
     #no. reflexive travelers, or `missing`
-        ,TOUR=[Mraw[i,i] for i ∈ 1:size(Mraw)[1]] )#just the reflexive travelers
-        #make the :FLOW column as :IN + :OUT; with absorbing `missing`
-        return out
-    end
+        ,TOUR=[M[i,i] for i ∈ 1:size(M)[1]] )#just the reflexive travelers
+    return out
+end
+
 
 #------BTS----CENSORING--------------------#
 
@@ -289,7 +241,7 @@ function censorAggFlows(p=2500::Number,idf=pickCleanAPs()::DataFrame)
 end
 
 #throw out the APs with missing IN or OUT enplanements
-scrubAPs(APs=mkAggFlows()::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
+scrubAPs(APs=mkAggFlows2()::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
 ,eachrow(APs)) |> DataFrame
 
 #===========INTERCONNECT===================#
@@ -299,7 +251,7 @@ scrubAPs(APs=mkAggFlows()::DataFrame) = filter(row -> !ismissing(row.OUT) && !is
 
 #pick just the given APs (by IATA_Code) from all in dfAPinfo
 #output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
-function pickAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
+function pickAPs(myAPs=mkAggFlows2()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
     out= innerjoin(myAPs, dfAPinfo,on=:IATA_Code)
     select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
 end
@@ -309,7 +261,7 @@ CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
 recall that 0 was identified with `missing` in mkAggFlows()=
 Also remove missings from the :IN and :OUT
 =#
-function pickCleanAPs(myAPs=mkAggFlows()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
+function pickCleanAPs(myAPs=mkAggFlows2()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
     pickAPs(myAPs,dfAPinfo) |> scrubAPs
 end
 
