@@ -111,14 +111,6 @@ function rdWholeUS(ins::NamingSpec=fn)
     rdFluteTract(ifName,ins)
 end
 
-#single ID column instead of :Ste,:Cty,:Tra
-# function rdFluteTractID(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~NW"),lsTracts())],
-#     ins::NamingSpec=fn)
-#     idf = rdFluteTract(ifName,ins) #delegate to the above
-#     idf.Name = map((s,z,w)-> join([s,z,w],"~"),idf.Ste,idf.Cty,idf.Tra)
-#     return idf
-# end
-
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
 #= by-state PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
@@ -444,7 +436,53 @@ function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     return outM
 end
 
+#=========OUTPUT===PREP=========================#
 
+#-----AUX----------------------#
+
+#= Select an `id`-generating function
+0. if it's a census tract, just write $Ste~$Cty~$Tra
+1. if it's a county or a state, write as Integer to match `us-10m.json`
+2. if it's a Voronoi cell of an AP, write the AP's IATA_Code
+=#
+function select_mkid(nms::Array{String})
+    if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
+         return r-> join([r.Ste,r.Cty,r.Tra],"~")
+    elseif ["Ste","Cty"] ⊆ nms #node's a county, must accomodate `us-10m.json`
+         return r-> parse(Int,r.Ste*"000") + parse(Int,r.Cty)
+    elseif  ["Ste"] ⊆ nms #node's a state, must accomodate `us-10m.json`
+         return r-> parse(Int,r.Ste)
+     elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
+         return r -> r.IATA_Code
+     else
+        error("Nodes header not recognized. Can't generate an :id without FIPS or IATA_Code.")
+     end
+ end
+
+#= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
+input MUST have [:I_i,:S_i]=#
+function infect!(ns::DataFrame)
+    if ns.I_i[1] == 0
+        ns[1,:S_i]-=1
+        ns[1,:I_i]+=1
+    end
+    return ns
+end
+#-----INITIAL---VALUES----------------------#
+
+#=
+input MUST have [:IATA_Code,:Pop,:Name,:LAT,:LNG]
+out spec: [:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG]
+=#
+function ns2iv_sterile(ns::DataFrame)
+    out = copy(ns)
+    rename!(out, :Pop => :N_i) 
+    insertcols!(out,1,:id => map(select_mkid(names(out)), eachrow(out)))
+    insertcols!(out,4, :S_i => out.N_i)
+    insertcols!(out,5, :I_i => zeros(Int64,nrow(out)))
+    insertcols!(out,6, :R_i => zeros(Int64,nrow(out)))
+    select(out,[:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG])
+end
 
 #=========AUX---DBG==================#
 #= This section has the functions I don't intend to move to production, which, however,
