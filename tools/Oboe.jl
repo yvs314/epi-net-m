@@ -484,6 +484,10 @@ function ns2iv_sterile(ns::DataFrame)
     select(out,[:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG])
 end
 
+#quick delegate for the most common use case
+ns2iv(ns::DataFrame) = ns2iv_sterile(ns) |> infect! 
+
+
 #=========AUX---DBG==================#
 #= This section has the functions I don't intend to move to production, which, however,
 are useful enough to be pulled from disparate notebooks
