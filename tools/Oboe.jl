@@ -73,6 +73,8 @@ global const fn=NamingSpec("-","_"
     ,"tracts.dat","init.csv")
 
 
+
+
 #locating BTS and OpenFlights input files
 const APdir= joinpath("..","data","by-tract","air")::String
 #raw BTS data, with separate per-carrier flights
@@ -481,6 +483,9 @@ function ns2iv_sterile(ns::DataFrame)
     insertcols!(out,4, :S_i => out.N_i)
     insertcols!(out,5, :I_i => zeros(Int64,nrow(out)))
     insertcols!(out,6, :R_i => zeros(Int64,nrow(out)))
+    if "IATA_Code" ∉ names(out)
+        insertcols!(out,2,:IATA_Code => repeat(["dummy"],nrow(out)))
+    end
     select(out,[:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG])
 end
 
@@ -543,3 +548,22 @@ end #end module Oboe
 # fipsNW=["41","53"]
 # iwfs=Oboe.rdTidyWfsByFIPS(fipsNW)
 # nnCmtMx = Oboe.mkCmtMx(ns2,iwfs)
+#----OUTPUT---SPEC---STRUCT---------------#
+# #prototype v2 namespec, just for output
+# struct outNameSpec
+#     s::String
+#     ss::String
+#     ofDir::String
+#     airsuff::String
+#     cmtsuff::String
+#     trvsuff::String
+# end
+
+# global const ofn=(
+#     s="-",ss="_",
+#     ofDir = joinpath("..","data","by-tract"),
+#     initsuff="-init.csv", #initial conditions
+#     airsuff="-air.dat", #dense matrix, air passengers per day
+#     cmtsuff="-cmt.dat", #dense matrix, commuters per day (ridiculous!)
+#     trvsuff="-trv.dat" #dense matrix, air + commute per day
+#     )
