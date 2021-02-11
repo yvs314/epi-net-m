@@ -189,23 +189,37 @@ function grpBTS(idf=rdBTS()::DataFrame)
 end
 
 
-#input DF must have :ORG,:DST,:PSG cols
+#input DF must have [:ORG,:DST,:PSG] cols
 #CAVEAT: missings are set to 0.0
-function mkFlightMx2(idf = grpBTS()::DataFrame; init_to = 0.0::Number)
-    orgAPs= [ row.ORG for row ∈ eachrow(idf)]
-    dstAPs = [ row.DST for row ∈ eachrow(idf)]
-    allAPs = orgAPs ∪ dstAPs |> sort #make sure they are sorted by name (:IATA_Code in fact)
-    dim = length(allAPs) #the matrix' will be [dim × dim]
-    ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
-    xis = zip(1:dim,allAPs) |> Dict #get name by index
-    #init the matrix with all init_to, defaulting to 0.0: screw the missings, I am nullifying them anyway
-    outM = fill(init_to,(dim,dim))
-    #fill the matrix with the *known* values
-    for row ∈ eachrow(idf)
-        outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  
+function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
+    #make a sorted list of ALL the APs in `fs`
+    allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
+    #delegate to the method taking the **carrier set** (`iretAPs`)
+    return mkFlightMx2(fs; iretAPs=allAPs, daily=daily,babble=babble,init_to=init_to)
+end
+
+function mkFlightMx2(fs::DataFrame; iretAPs::Array{String},daily=true::Bool,babble=true::Bool, init_to=0.0::Number)
+
+    retAPs = sort(iretAPs) #ensure AP codes are sorted, for indexing porposes
+    #retain only flights (tuples :ORG,:DST,PSG) for APs ∈ retAPs; 
+    retFlows = filter(a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(fs)) |> DataFrame
+    
+    if babble #report if there were *any* isolated APs
+        isolatedAPs = filter( a -> a ∉ retFlows.ORG && a ∉ retFlows.DST, retAPs)
+        println("Found ", isolatedAPs |> length," isolated APs: ",isolatedAPs) 
     end
     
-    return (M= outM, ix=ixs,xi=xis,apCodes=DataFrame(IATA_Code=allAPs))
+    dim = length(retAPs) 
+    ix_ = zip(retAPs, 1:dim) |> Dict #get index by name 
+    xi_ = zip(1:dim,retAPs) |> Dict #get name by index 
+    M = fill(init_to,(dim,dim)) #default is 0.0; screw `missing`
+    #fill the matrix with the *known* values
+    for row ∈ eachrow(retFlows)
+        M[ix_[row.ORG],ix_[row.DST]] = row.PSG  
+    end
+
+    outM = daily ? map(x -> x/365,M) : M #annual-to-daily, if requested
+    return (A=outM, ix = ix_, xi = xi_)
 end
 
 #=
@@ -352,7 +366,7 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     dim = nrow(ns) #final output matrix is [dim × dim]
     #retain only flights (tuples :ORG,:DST,PSG) for designated APs
     retFlows = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
-    #=find all the designated APs that didn't make it into `flowCns` 
+    #=find all the designated APs that didn't make it into `retFlows` 
     because they had no connections to other designated APs (“isolated dsg APs”) =#
     isolatedAPs = filter( apID -> apID ∉ retFlows.ORG && apID ∉ retFlows.DST, retAPs)
     #report if there were *any* isolated designated APs
