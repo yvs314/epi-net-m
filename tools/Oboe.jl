@@ -189,8 +189,10 @@ function grpBTS(idf=rdBTS()::DataFrame)
 end
 
 
-#input DF must have [:ORG,:DST,:PSG] cols
-#CAVEAT: missings are set to 0.0
+#=
+Transform a *list of arcs* into *adjacency matrix*
+input: DF must have [:ORG,:DST,:PSG] cols
+=#
 function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
     #make a sorted list of ALL the APs in `fs`
     allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
@@ -198,6 +200,7 @@ function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Boo
     return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to)
 end
 
+#takes *explicit* list of vertices `iretAPs`
 function mkFlightMx2(fs::DataFrame, iretAPs::Array{String}; daily=true::Bool,babble=true::Bool, init_to=0.0::Number)
     retAPs = sort(iretAPs) #ensure AP codes are sorted, for indexing porposes
     #retain only flights (tuples :ORG,:DST,PSG) for APs ∈ retAPs; 
@@ -359,25 +362,11 @@ end
 
 #------AIR---PASSENGER---FLOW---MATRIX----------------------#
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
-#TODO: make usage of stopgap explicit, e.g. _(_;dbg=true) ... if dbg print("Debug info")
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
     retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
     dim = nrow(ns) #final output matrix is [dim × dim]
-    #retain only flights (tuples :ORG,:DST,PSG) for designated APs
-    retFlows = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
-    #=find all the designated APs that didn't make it into `retFlows` 
-    because they had no connections to other designated APs (“isolated dsg APs”) =#
-    isolatedAPs = filter( apID -> apID ∉ retFlows.ORG && apID ∉ retFlows.DST, retAPs)
-    #report if there were *any* isolated designated APs
-    println("Found ", isolatedAPs |> length," ISOLATED designated APs: ",isolatedAPs)
-    #=now make dummy, 0-passenger flights from each of them to the 1st :DST AP in retFlows
-    to make sure `isolatedAPs` appear in `outM`, and add them to retFlows=#
-    patchedFs = vcat(retFlows
-            , [(ORG=apID,DST=retFlows[1,:].DST,PSG=0.0) for apID in isolatedAPs] |> DataFrame)
-    sort!(patchedFs,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
-    #get the AP-to-AP flows for the designated APs, with IATA_Code <-> Index 
-    aps = mkFlightMx2(patchedFs)  
-    A = map(x -> x/365,aps.M) #make avg. daily ap-ap psg flows; perhaps just drop <1 values
+    #get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
+    aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  
     outM = fill(0.0, (dim,dim))
     #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
     for from ∈ 1:dim, to ∈ 1:dim
@@ -385,13 +374,13 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
             # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
             outM[from,to] = ns.shr[from] *
                             ns.shr[to] *
-                            A[ aps.ix[ns.IATA_Code[from]]
+                            aps.M[ aps.ix[ns.IATA_Code[from]]
                                     ,aps.ix[ns.IATA_Code[to]] ]                                                        
         end
     end 
     return outM
 
-end #end mkPsgMx()
+end 
 
 #-------COMMUTER---FLOW--------------------#
 
