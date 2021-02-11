@@ -194,12 +194,11 @@ end
 function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
     #make a sorted list of ALL the APs in `fs`
     allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
-    #delegate to the method taking the **carrier set** (`iretAPs`)
-    return mkFlightMx2(fs; iretAPs=allAPs, daily=daily,babble=babble,init_to=init_to)
+    #delegate to the method with EXPLICIT ground set (`iretAPs`)
+    return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to)
 end
 
-function mkFlightMx2(fs::DataFrame; iretAPs::Array{String},daily=true::Bool,babble=true::Bool, init_to=0.0::Number)
-
+function mkFlightMx2(fs::DataFrame, iretAPs::Array{String}; daily=true::Bool,babble=true::Bool, init_to=0.0::Number)
     retAPs = sort(iretAPs) #ensure AP codes are sorted, for indexing porposes
     #retain only flights (tuples :ORG,:DST,PSG) for APs ∈ retAPs; 
     retFlows = filter(a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(fs)) |> DataFrame
@@ -212,14 +211,14 @@ function mkFlightMx2(fs::DataFrame; iretAPs::Array{String},daily=true::Bool,babb
     dim = length(retAPs) 
     ix_ = zip(retAPs, 1:dim) |> Dict #get index by name 
     xi_ = zip(1:dim,retAPs) |> Dict #get name by index 
-    M = fill(init_to,(dim,dim)) #default is 0.0; screw `missing`
+    M_ = fill(init_to,(dim,dim)) #default is 0.0; screw `missing`
     #fill the matrix with the *known* values
     for row ∈ eachrow(retFlows)
-        M[ix_[row.ORG],ix_[row.DST]] = row.PSG  
+        M_[ix_[row.ORG],ix_[row.DST]] = row.PSG  
     end
 
-    outM = daily ? map(x -> x/365,M) : M #annual-to-daily, if requested
-    return (A=outM, ix = ix_, xi = xi_)
+    outM = daily ? map(x -> x/365,M_) : M_ #annual-to-daily, if requested
+    return (M=outM, ix = ix_, xi = xi_,apCodes = retAPs)
 end
 
 #=
@@ -229,8 +228,8 @@ with :IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
 in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
 (opt) :TTL=:IN+:OUT,
 =#
-function mkAggFlows2(apCodes::DataFrame=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
-        out=DataFrame(IATA_Code=apCodes.IATA_Code
+function mkAggFlows2(apCodes::Array{String}=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
+        out=DataFrame(IATA_Code=apCodes
     #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
         ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
     #row-wise total sans the reflexive, `missing` if the departures are only reflexive

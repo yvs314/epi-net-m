@@ -19,7 +19,7 @@ oboe-main.jl
 push!(LOAD_PATH,pwd())
 using Oboe
 
-println(callsign)
+println(Oboe.callsign)
 
 #lame logging thing
 myshow = obj -> println(first(obj,5))
@@ -40,6 +40,9 @@ d = Oboe.mkAP_pop_dict(ns)
 #go on, compute the nodes' passenger shares (add the :shr col), with `d` in mind
 ns2 = Oboe.assignPsgShares(ns,d)
 ns2 |> myshow
+
+ns3 = Oboe.ns2iv(ns2) #prep for output, add 1 infected to the 1st node
+ns3 |> myshow
 #finally, compute NODE-NODE daily air passengers
 Ap =Oboe.mkPsgMx(ns2)
 Oboe.talkDnsy(Ap)
