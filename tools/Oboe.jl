@@ -382,17 +382,6 @@ end #end mkPsgMx()
 
 #-------COMMUTER---FLOW--------------------#
 
-# dim = length(allAPs) #the matrix' will be [dim × dim]
-# ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
-# xis = zip(1:dim,allAPs) |> Dict #get name by index
-# #init the matrix with all 0.0, screw the missings, I am nullifying them anyway
-# outM = fill(0.0,(dim,dim))
-# #fill the matrix with the *known* values
-# [outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  for row ∈ eachrow(idf)]
-
-# return (M= outM, ix=ixs,xi=xis)
-
-
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
 function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     #generate FluTE filename by State's FIPS
@@ -473,7 +462,8 @@ end
 #-----INITIAL---VALUES----------------------#
 
 #=
-input MUST have [:IATA_Code,:Pop,:Name,:LAT,:LNG]
+input MUST have [:Pop,:Name,:LAT,:LNG]
+input SHOULD have [:IATA_Code], if absent, inserted as "dummy"
 out spec: [:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG]
 =#
 function ns2iv_sterile(ns::DataFrame)
