@@ -21,6 +21,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-01-22   v.0.9: air travel and commute matrices are in, tested on 2K NW (by-tract)
 '21-02-02   v.0.9.1: hotfix, removing deprecated `by`, `names!`, and the like (half-done)
 '21-02-02   v.0.9.2: removed all the deprecated stuff, and it all works again
+'21-02-14   v.0.9.3: add node partitioning, streamline mkFlightMx2() and mkPsgMx2() with aux
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -43,7 +44,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.2"
+const callsign="This is Oboe v.0.9.3"
 #println(callsign)
 
 #=
@@ -368,23 +369,17 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
     #get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
     aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  
     outM = fill(0.0, (dim,dim))
-    #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
-    for from ∈ 1:dim, to ∈ 1:dim
-        if ns[from,:].IATA_Code ≠ ns[to,:].IATA_Code #no air travel unless dsg APs are different
-            # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
-            outM[from,to] = ns.shr[from] *
-                            ns.shr[to] *
-                            aps.M[ aps.ix[ns.IATA_Code[from]]
-                                    ,aps.ix[ns.IATA_Code[to]] ]                                                        
-        end
+    #for each [from,to] pair, set 0.0 for reflexive flights (dsg_APs match),
+    for from ∈ 1:dim, to ∈ 1:dim # or weigh AP<->AP psg by nodes' pop shares
+        outM[from,to] = ns.IATA_Code[from] == ns.IATA_Code[to] ? 0.0 : psg(from,to,ns,aps)
     end 
     return outM
 
 end 
 
 #---AUX::---AIR---PASSENGER---FLOW---MATRIX----------------------#
-#APs is a NamedTuple (M,ix,xi), as returned by mkFlightMx2
-#ns has [:shr]
+#APs MUST be a NamedTuple (M,ix,xi), as returned by mkFlightMx2
+#ns MUST have [:shr]
 function psg(from::Integer,to::Integer,ns::DataFrame,APs)
     ns.shr[from] * ns.shr[to] * APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]]
 end
