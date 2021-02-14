@@ -22,6 +22,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-02-02   v.0.9.1: hotfix, removing deprecated `by`, `names!`, and the like (half-done)
 '21-02-02   v.0.9.2: removed all the deprecated stuff, and it all works again
 '21-02-14   v.0.9.3: add node partitioning, streamline mkFlightMx2() and mkPsgMx2() with aux
+'21-02-14   v.0.9.4: add partition-to-partition flight matrix
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -44,7 +45,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.3"
+const callsign="This is Oboe v.0.9.4"
 #println(callsign)
 
 #=
@@ -365,23 +366,47 @@ end
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
     retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
-    dim = nrow(ns) #final output matrix is [dim × dim]
     #get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
     aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  
+    dim = nrow(ns) #final output matrix is [dim × dim]
     outM = fill(0.0, (dim,dim))
-    #for each [from,to] pair, set 0.0 for reflexive flights (dsg_APs match),
-    for from ∈ 1:dim, to ∈ 1:dim # or weigh AP<->AP psg by nodes' pop shares
-        outM[from,to] = ns.IATA_Code[from] == ns.IATA_Code[to] ? 0.0 : psg(from,to,ns,aps)
+    #for each [from,to] pair, delegate to aux function psg
+    for from ∈ 1:dim, to ∈ 1:dim 
+        outM[from,to] = psg(from,to,ns,aps) #NB! reflexive flights are set to 0.0
     end 
     return outM
+end
 
-end 
+#=
+NB! now a method for partition-to-partition flights
+`ns` MUST have [:IATA_code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+=#
+function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict)
+    retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
+    aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  #get the daily AP-to-AP flows for the designated APs
+    dim = nrow(pns) #final output matrix is [dim × dim], for nodes in `pns`
+    outM = fill(0.0, (dim,dim))
+#proceed column-wise
+    for pto ∈ 1:dim, pfrom ∈ 1:dim
+        if pfrom == pto
+            outM[pfrom,pto]=0.0 #no reflexive air travel
+        else #sum the travel between consituents
+            outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps)
+                    for efrom ∈ prt[pns.Name[pfrom]], eto ∈ prt[pns.Name[pto]])
+        end
+    end
+    return outM
+end
+
 
 #---AUX::---AIR---PASSENGER---FLOW---MATRIX----------------------#
 #APs MUST be a NamedTuple (M,ix,xi), as returned by mkFlightMx2
-#ns MUST have [:shr]
+#ns MUST have [:shr,:IATA_Code]
 function psg(from::Integer,to::Integer,ns::DataFrame,APs)
-    ns.shr[from] * ns.shr[to] * APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]]
+    if ns.IATA_Code[from] ≠ ns.IATA_Code[to]
+        return ns.shr[from] * ns.shr[to] * APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]]
+    else return 0.0
+    end
 end
 
 function partByCty(ns::DataFrame,pns::DataFrame)
@@ -394,7 +419,7 @@ end
 function partBySte(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
 end
-#-------COMMUTER---FLOW--------------------#
+#======COMMUTER=====FLOW==================#
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
 function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
