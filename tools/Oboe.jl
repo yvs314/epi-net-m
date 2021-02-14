@@ -383,6 +383,12 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
 end 
 
 #---AUX::---AIR---PASSENGER---FLOW---MATRIX----------------------#
+#APs is a NamedTuple (M,ix,xi), as returned by mkFlightMx2
+#ns has [:shr]
+function psg(from::Integer,to::Integer,ns::DataFrame,APs)
+    ns.shr[from] * ns.shr[to] * APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]]
+end
+
 function partByCty(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==split(x,"~")[1] && 
                         ns.Cty[ri]==split(x,"~")[2],
