@@ -382,6 +382,17 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
 
 end 
 
+#---AUX::---AIR---PASSENGER---FLOW---MATRIX----------------------#
+function partByCty(ns::DataFrame,pns::DataFrame)
+    Dict(x => filter(ri -> ns.Ste[ri]==split(x,"~")[1] && 
+                        ns.Cty[ri]==split(x,"~")[2],
+                        1:nrow(ns)) for x ∈ pns.Name)
+end
+
+#cruel: makes states unique
+function partBySte(ns::DataFrame,pns::DataFrame)
+    Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
+end
 #-------COMMUTER---FLOW--------------------#
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
