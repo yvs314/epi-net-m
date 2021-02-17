@@ -433,6 +433,12 @@ function revexplPart(dict::Dict, ns::DataFrame)
     ( ns.Name[v] => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end
 
+#like above but also map the keys' names to `indices`
+# ns:: [:Name]
+function revexplPart(dict::Dict, ns::DataFrame,ix::Dict)
+    ( ns.Name[v] => ix[k]  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
 #======COMMUTER=====FLOW==================#
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
