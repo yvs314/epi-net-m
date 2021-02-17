@@ -409,6 +409,7 @@ function psg(from::Integer,to::Integer,ns::DataFrame,APs)
     end
 end
 
+#---AUX::---PARTITION---AND---REVERSE------------------------#
 function partByCty(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==split(x,"~")[1] && 
                         ns.Cty[ri]==split(x,"~")[2],
@@ -419,6 +420,19 @@ end
 function partBySte(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
 end
+
+#part:: Name1 => [Names2],
+#out:: Name2 => Name1 
+function revexplPart(dict::Dict)
+    ( v => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
+#like above but also restore the Names of entries
+# ns:: [:Name]
+function revexplPart(dict::Dict, ns::DataFrame)
+    ( ns.Name[v] => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
 #======COMMUTER=====FLOW==================#
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
@@ -438,9 +452,9 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3 #add them all together
     #combine the State,County,Tract triples into single columns
     insertcols!(wfs4, 1, 
-        ORG = map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
+        :ORG => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
     insertcols!(wfs4, 2, 
-        DST = map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
+        :DST => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
     rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
     select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
     sort!(wfs4,[:ORG,:DST])

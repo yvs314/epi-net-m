@@ -44,5 +44,5 @@ ns2 |> myshow
 ns3 = Oboe.ns2iv(ns2) #prep for output, add 1 infected to the 1st node
 ns3 |> myshow
 #finally, compute NODE-NODE daily air passengers
-Ap =Oboe.mkPsgMx(ns2)
-Oboe.talkDnsy(Ap)
+#Ap =Oboe.mkPsgMx(ns2)
+#Oboe.talkDnsy(Ap)
