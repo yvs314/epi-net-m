@@ -46,3 +46,7 @@ ns3 |> myshow
 #finally, compute NODE-NODE daily air passengers
 #Ap =Oboe.mkPsgMx(ns2)
 #Oboe.talkDnsy(Ap)
+
+#fipsNW=["41","53"]
+#iwfs=Oboe.rdTidyWfsByFIPS(fipsNW)
+#Ac = Oboe.mkCmtMx(ns2,iwfs)

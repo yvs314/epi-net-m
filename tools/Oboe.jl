@@ -124,7 +124,7 @@ end
     elseif ["Ste","Cty"] ⊆ nms #node's a county
          return r-> join([r.Ste,r.Cty],"~")
     elseif  ["Ste"] ⊆ nms #node's a state
-         return r-> parse(Int,r.Ste)
+         return r-> string(r.Ste) #ensure it's output as a string
      elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
          return r -> r.IATA_Code
      else
@@ -513,6 +513,23 @@ NB! now a method for partition-to-partition commute
 `ns` MUST have [:Name]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
 partition is reversed by a helper function, hence the need for `ns` and `pns` to have :Name
 =#
+
+function mkCmtMx(ns::DataFrame,pns::DataFrame,prt::Dict,wfs::DataFrame)
+    if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
+        error("Wrong DF! Terminating.")
+    end
+    dim = nrow(pns) 
+    ixs = zip(pns.Name, 1:dim) |> Dict # Name => index
+   # xis = zip(1:dim, pns.Name) |> Dict # index => Name
+    revp = Oboe.revexplPart(prt,ns,ixs) #generate the reverse-exploded partition
+    outM = fill(0.0,(dim,dim)) # part-to-part commute matrix, init to 0.0
+    for trip ∈ eachrow(wfs)
+        if revp[trip.ORG] ≠ revp[trip.DST] # assuming the commute was not reflexive,
+            outM[revp[trip.ORG],revp[trip.DST]]+= trip.CMT #count it in outM[pfrom,pto]
+        end
+    end
+    return outM
+end
 
 #=========OUTPUT===PREP=========================#
 
