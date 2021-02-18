@@ -116,23 +116,45 @@ function rdWholeUS(ins::NamingSpec=fn)
 end
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
+
+ #NB! :Name is a String
+ function select_mkName(nms::Array{String})
+    if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
+         return r-> join([r.Ste,r.Cty,r.Tra],"~")
+    elseif ["Ste","Cty"] ⊆ nms #node's a county
+         return r-> join([r.Ste,r.Cty],"~")
+    elseif  ["Ste"] ⊆ nms #node's a state
+         return r-> parse(Int,r.Ste)
+     elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
+         return r -> r.IATA_Code
+     else
+        error("Nodes header not recognized. Can't generate a :Name without FIPS or IATA_Code.")
+     end
+ end
+
 #= by-state PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 TODO: put the by--end output into a variable and add post-processing (adding the ID)
 =#
-function aggBySte(idf=rdFluteTract()::DataFrame)
+function aggBySte(idf=rdFluteTract()::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste]) #group by U.S. State FIPS
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
+    if make_names && "Name" ∉ names(out)
+        insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
+    end
 end
 
 #= by-county PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
-function aggByCty(idf=rdFluteTract()::DataFrame)
+function aggByCty(idf=rdFluteTract()::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste,:Cty]) #group by U.S. County FIPS, within the same State FIPS 
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
+    if make_names && "Name" ∉ names(out)
+        insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
+    end
 end
 
 #=======WORKING===WITH===AIRPORTS====================#
@@ -421,20 +443,20 @@ function partBySte(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
 end
 
-#part:: Name1 => [Names2],
-#out:: Name2 => Name1 
+#part:: Name1 => [ns_row_indices],
+#out:: ns_row_index => Name1 
 function revexplPart(dict::Dict)
     ( v => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end
 
 #like above but also restore the Names of entries
-# ns:: [:Name]
+# ns MUST have [:Name]
 function revexplPart(dict::Dict, ns::DataFrame)
     ( ns.Name[v] => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end
 
 #like above but also map the keys' names to `indices`
-# ns:: [:Name]
+# ns MUST have [:Name]; ix:: Name => partition_index
 function revexplPart(dict::Dict, ns::DataFrame,ix::Dict)
     ( ns.Name[v] => ix[k]  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end
@@ -486,6 +508,12 @@ function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     return outM
 end
 
+#=
+NB! now a method for partition-to-partition commute
+`ns` MUST have [:Name]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+partition is reversed by a helper function, hence the need for `ns` and `pns` to have :Name
+=#
+
 #=========OUTPUT===PREP=========================#
 
 #-----AUX----------------------#
@@ -508,6 +536,8 @@ function select_mkid(nms::Array{String})
         error("Nodes header not recognized. Can't generate an :id without FIPS or IATA_Code.")
      end
  end
+
+
 
 #= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
 input MUST have [:I_i,:S_i]=#
