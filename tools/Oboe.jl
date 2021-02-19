@@ -101,6 +101,10 @@ function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
 
+
+
+
+
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames 
 Default to NW tracts (Oregon + Washington)
@@ -469,6 +473,15 @@ end
 
 #======COMMUTER=====FLOW==================#
 
+#--AUX:--READ--CMT------#
+#show the wf names
+function lsWf(ins::NamingSpec = fn)
+    filter(s::String -> startswith(s,"usa-wf-"),readdir(ins.ifDir))
+end
+
+ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf()) 
+
+
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
 function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     #generate FluTE filename by State's FIPS
@@ -495,6 +508,19 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
 
     return wfs4
 end
+
+#=return  the commutes for tracts not present in `ns`
+ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
+=#
+function scrubWfs(ns::DataFrame,wfs::DataFrame)
+    allCmtTracts = (wfs.ORG |> unique) ∪ (wfs.DST |> unique)
+     #these tracts are not present in FluTE's `us-tracts.dat`
+    notPresent = setdiff(allCmtTracts,ns.Name)
+    retwfs = filter(r -> r.ORG ∉ notPresent && r.DST ∉ notPresent,eachrow(wfs))
+    return retwfs
+end
+
+
 
 #--------COMMUTER---FLOW---MATRIX--------------#
 
