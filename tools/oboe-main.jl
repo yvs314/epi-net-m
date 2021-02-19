@@ -12,6 +12,7 @@ or `include("oboe-main.jl")` at the julia REPL
 oboe-main.jl
 2020-12-10  v.0.0 A Hello, World!
 2021-02-02  v.0.1 Just the AP-AP to node-node processing
+2021-02-19  v.0.5 Full processing, commented out; still no IO
 """
 
 #here's a crutch to load from current path;
@@ -41,12 +42,30 @@ d = Oboe.mkAP_pop_dict(ns)
 ns2 = Oboe.assignPsgShares(ns,d)
 ns2 |> myshow
 
-ns3 = Oboe.ns2iv(ns2) #prep for output, add 1 infected to the 1st node
-ns3 |> myshow
-#finally, compute NODE-NODE daily air passengers
-#Ap =Oboe.mkPsgMx(ns2)
-#Oboe.talkDnsy(Ap)
+fipsNW=["41","53"]
 
-#fipsNW=["41","53"]
-#iwfs=Oboe.rdTidyWfsByFIPS(fipsNW)
-#Ac = Oboe.mkCmtMx(ns2,iwfs)
+cmt = Oboe.rdTidyWfsByFIPS(fipsNW)
+cmt |> myshow
+# bycty = Oboe.aggByCty(ns2)
+# bycty |> myshow
+# byste = Oboe.aggBySte(ns2)
+# byste |> show
+# pNWs = Oboe.partBySte(ns2,byste)
+# pNWc = Oboe.partByCty(ns2,bycty)
+
+# Act = Oboe.mkCmtMx(ns2,cmt)
+# Acc = Oboe.mkCmtMx(ns2,bycty,pNWc,cmt)
+# Acs = Oboe.mkCmtMx(ns2,byste,pNWs,cmt)
+
+# Apt = Oboe.mkPsgMx(ns2)
+# Apc = Oboe.mkPsgMx(ns2,bycty,pNWc)
+# Aps = Oboe.mkPsgMx(ns2,byste, pNWs)
+
+# inames = ["a~NW~tra","a~NW~cty","a~NW~ste"]
+# inames |> println
+# ivs=map(Oboe.ns2iv,[ns2,bycty,byste])
+# trvs=[Apt + Act, Apc + Acc, Aps + Acs]
+
+# for n in 1:3
+#     Oboe.writeMe(inames[n],ivs[n],trvs[n])
+# end

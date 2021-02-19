@@ -23,6 +23,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-02-02   v.0.9.2: removed all the deprecated stuff, and it all works again
 '21-02-14   v.0.9.3: add node partitioning, streamline mkFlightMx2() and mkPsgMx2() with aux
 '21-02-14   v.0.9.4: add partition-to-partition flight matrix
+'21-02-18   v.0.9.5: add partition-to-partition commute matrix
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -32,9 +33,9 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 module Oboe
 
 
-#reading ingress $name-tract.dat, $name-wf.dat$
-#reading ingress; possibly, output too
-using CSV
+
+#CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
+using CSV,DelimitedFiles
 #transforming the data in tabular form;
 using DataFrames
 #ready-made `mean` function
@@ -45,7 +46,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.4"
+const callsign="This is Oboe v.0.9.5"
 #println(callsign)
 
 #=
@@ -74,7 +75,12 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
-
+function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir="../data/by-tract")
+    ofivs= join([iname,nrow(ivs)],"_") * "-init.csv"
+    oftrv= join([iname,nrow(ivs)],"_") * "-trav.dat"
+    CSV.write(joinpath(ofdir,ofivs),ivs)
+    writedlm(joinpath(ofdir,oftrv),A)
+end
 
 
 #locating BTS and OpenFlights input files
@@ -639,7 +645,6 @@ end #end module Oboe
 # ns2 |> myshow
 # #finally, compute NODE-NODE daily air passengers
 # nnPsg=Oboe.mkPsgMx(ns2)
-
 
 # fipsNW=["41","53"]
 # iwfs=Oboe.rdTidyWfsByFIPS(fipsNW)
