@@ -32,11 +32,8 @@ instDir="data/by-tract"; %by-tract are FluTE-derived, larger instances
 %initial values instances have the form $instName-init.csv
 
 %set the instance name
-%instName="seattle_124"; %the smallest non-singleton of the FluTE-derived
-%instName="la_2049"; %a larger FluTE-derived instance
-instName="a~NW_2072"; %Oregon + Washington, with flights & commute
-%instName="first_4"; %toy 4-city AP-derived instance, Atlanta, Boston, Charlotteville, Denver
-
+instName="a~NW~cty_75"; %Oregon + Washington, with flights & commute
+%instName="a~NW~ste_2"; %Oregon + Washington, with flights & commute
 
 % if false, use eps_one coupling
 % if true, read the daily passengers table from $instName-flug.dat
@@ -66,11 +63,11 @@ beta = 1/2.5 ; %infectious rate at each node
 fnSep="-"; %use - to separate file name fields
 fnSubSep="_"; %use _ to subdivide file name fields
 IV_suff="init.csv"; %all instances IVs end like this 
-flug_suff="flug.dat"; %all instances daily psgrs end like this
+trav_suff="trav.dat"; %all instances' travel data end like this
 
 %TODO: add error if IVs not found
 iValPath=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
-iFlugPath=fullfile(instDir,instName+fnSep+flug_suff); %path to the flight data, if any
+iFlugPath=fullfile(instDir,instName+fnSep+trav_suff); %path to the flight data, if any
 
 %% Set the IO parameters: output location and naming
 outDir = "out"; %write the output figures and tables here
