@@ -21,6 +21,9 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-01-22   v.0.9: air travel and commute matrices are in, tested on 2K NW (by-tract)
 '21-02-02   v.0.9.1: hotfix, removing deprecated `by`, `names!`, and the like (half-done)
 '21-02-02   v.0.9.2: removed all the deprecated stuff, and it all works again
+'21-02-14   v.0.9.3: add node partitioning, streamline mkFlightMx2() and mkPsgMx2() with aux
+'21-02-14   v.0.9.4: add partition-to-partition flight matrix
+'21-02-18   v.0.9.5: add partition-to-partition commute matrix
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -30,9 +33,9 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 module Oboe
 
 
-#reading ingress $name-tract.dat, $name-wf.dat$
-#reading ingress; possibly, output too
-using CSV
+
+#CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
+using CSV,DelimitedFiles
 #transforming the data in tabular form;
 using DataFrames
 #ready-made `mean` function
@@ -43,7 +46,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.2"
+const callsign="This is Oboe v.0.9.5"
 #println(callsign)
 
 #=
@@ -72,6 +75,13 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
+function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir="../data/by-tract")
+    ofivs= join([iname,nrow(ivs)],"_") * "-init.csv"
+    oftrv= join([iname,nrow(ivs)],"_") * "-trav.dat"
+    CSV.write(joinpath(ofdir,ofivs),ivs)
+    writedlm(joinpath(ofdir,oftrv),A)
+end
+
 
 #locating BTS and OpenFlights input files
 const APdir= joinpath("..","data","by-tract","air")::String
@@ -90,6 +100,10 @@ global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
+
+
+
+
 
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames 
@@ -111,32 +125,46 @@ function rdWholeUS(ins::NamingSpec=fn)
     rdFluteTract(ifName,ins)
 end
 
-#single ID column instead of :Ste,:Cty,:Tra
-# function rdFluteTractID(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~NW"),lsTracts())],
-#     ins::NamingSpec=fn)
-#     idf = rdFluteTract(ifName,ins) #delegate to the above
-#     idf.Name = map((s,z,w)-> join([s,z,w],"~"),idf.Ste,idf.Cty,idf.Tra)
-#     return idf
-# end
-
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
+
+ #NB! :Name is a String
+ function select_mkName(nms::Array{String})
+    if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
+         return r-> join([r.Ste,r.Cty,r.Tra],"~")
+    elseif ["Ste","Cty"] ⊆ nms #node's a county
+         return r-> join([r.Ste,r.Cty],"~")
+    elseif  ["Ste"] ⊆ nms #node's a state
+         return r-> string(r.Ste) #ensure it's output as a string
+     elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
+         return r -> r.IATA_Code
+     else
+        error("Nodes header not recognized. Can't generate a :Name without FIPS or IATA_Code.")
+     end
+ end
+
 #= by-state PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 TODO: put the by--end output into a variable and add post-processing (adding the ID)
 =#
-function aggBySte(idf=rdFluteTract()::DataFrame)
+function aggBySte(idf=rdFluteTract()::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste]) #group by U.S. State FIPS
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
+    if make_names && "Name" ∉ names(out)
+        insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
+    end
 end
 
 #= by-county PRE-aggregation,
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
-function aggByCty(idf=rdFluteTract()::DataFrame)
+function aggByCty(idf=rdFluteTract()::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste,:Cty]) #group by U.S. County FIPS, within the same State FIPS 
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
+    if make_names && "Name" ∉ names(out)
+        insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
+    end
 end
 
 #=======WORKING===WITH===AIRPORTS====================#
@@ -195,23 +223,39 @@ function grpBTS(idf=rdBTS()::DataFrame)
 end
 
 
-#input DF must have :ORG,:DST,:PSG cols
-#CAVEAT: missings are set to 0.0
-function mkFlightMx2(idf = grpBTS()::DataFrame; init_to = 0.0::Number)
-    orgAPs= [ row.ORG for row ∈ eachrow(idf)]
-    dstAPs = [ row.DST for row ∈ eachrow(idf)]
-    allAPs = orgAPs ∪ dstAPs |> sort #make sure they are sorted by name (:IATA_Code in fact)
-    dim = length(allAPs) #the matrix' will be [dim × dim]
-    ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
-    xis = zip(1:dim,allAPs) |> Dict #get name by index
-    #init the matrix with all init_to, defaulting to 0.0: screw the missings, I am nullifying them anyway
-    outM = fill(init_to,(dim,dim))
-    #fill the matrix with the *known* values
-    for row ∈ eachrow(idf)
-        outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  
+#=
+Transform a *list of arcs* into *adjacency matrix*
+input: DF must have [:ORG,:DST,:PSG] cols
+=#
+function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
+    #make a sorted list of ALL the APs in `fs`
+    allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
+    #delegate to the method with EXPLICIT ground set (`iretAPs`)
+    return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to)
+end
+
+#takes *explicit* list of vertices `iretAPs`
+function mkFlightMx2(fs::DataFrame, iretAPs::Array{String}; daily=true::Bool,babble=true::Bool, init_to=0.0::Number)
+    retAPs = sort(iretAPs) #ensure AP codes are sorted, for indexing porposes
+    #retain only flights (tuples :ORG,:DST,PSG) for APs ∈ retAPs; 
+    retFlows = filter(a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(fs)) |> DataFrame
+    
+    if babble #report if there were *any* isolated APs
+        isolatedAPs = filter( a -> a ∉ retFlows.ORG && a ∉ retFlows.DST, retAPs)
+        println("Found ", isolatedAPs |> length," isolated APs: ",isolatedAPs) 
     end
     
-    return (M= outM, ix=ixs,xi=xis,apCodes=DataFrame(IATA_Code=allAPs))
+    dim = length(retAPs) 
+    ix_ = zip(retAPs, 1:dim) |> Dict #get index by name 
+    xi_ = zip(1:dim,retAPs) |> Dict #get name by index 
+    M_ = fill(init_to,(dim,dim)) #default is 0.0; screw `missing`
+    #fill the matrix with the *known* values
+    for row ∈ eachrow(retFlows)
+        M_[ix_[row.ORG],ix_[row.DST]] = row.PSG  
+    end
+
+    outM = daily ? map(x -> x/365,M_) : M_ #annual-to-daily, if requested
+    return (M=outM, ix = ix_, xi = xi_,apCodes = retAPs)
 end
 
 #=
@@ -221,8 +265,8 @@ with :IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
 in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
 (opt) :TTL=:IN+:OUT,
 =#
-function mkAggFlows2(apCodes::DataFrame=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
-        out=DataFrame(IATA_Code=apCodes.IATA_Code
+function mkAggFlows2(apCodes::Array{String}=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
+        out=DataFrame(IATA_Code=apCodes
     #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
         ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
     #row-wise total sans the reflexive, `missing` if the departures are only reflexive
@@ -352,51 +396,90 @@ end
 
 #------AIR---PASSENGER---FLOW---MATRIX----------------------#
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
-#TODO: make usage of stopgap explicit, e.g. _(_;dbg=true) ... if dbg print("Debug info")
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
     retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
+    #get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
+    aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  
     dim = nrow(ns) #final output matrix is [dim × dim]
-    #retain only flights (tuples :ORG,:DST,PSG) for designated APs
-    retFlows = filter( a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(grpBTS())) |> DataFrame
-    #=find all the designated APs that didn't make it into `flowCns` 
-    because they had no connections to other designated APs (“isolated dsg APs”) =#
-    isolatedAPs = filter( apID -> apID ∉ retFlows.ORG && apID ∉ retFlows.DST, retAPs)
-    #report if there were *any* isolated designated APs
-    println("Found ", isolatedAPs |> length," ISOLATED designated APs: ",isolatedAPs)
-    #=now make dummy, 0-passenger flights from each of them to the 1st :DST AP in retFlows
-    to make sure `isolatedAPs` appear in `outM`, and add them to retFlows=#
-    patchedFs = vcat(retFlows
-            , [(ORG=apID,DST=retFlows[1,:].DST,PSG=0.0) for apID in isolatedAPs] |> DataFrame)
-    sort!(patchedFs,[:ORG,:DST]) #restore the order (this screams for an object and a constructor!)
-    #get the AP-to-AP flows for the designated APs, with IATA_Code <-> Index 
-    aps = mkFlightMx2(patchedFs)  
-    A = map(x -> x/365,aps.M) #make avg. daily ap-ap psg flows; perhaps just drop <1 values
     outM = fill(0.0, (dim,dim))
-    #for each [from,to] pair, set 0.0 if dsg_APs match or weigh AP<->AP psg by nodes' pop shares
-    for from ∈ 1:dim, to ∈ 1:dim
-        if ns[from,:].IATA_Code ≠ ns[to,:].IATA_Code #no air travel unless dsg APs are different
-            # shr_{from} × shr_{to} × psg_{dsg_from,dsg_to}
-            outM[from,to] = ns.shr[from] *
-                            ns.shr[to] *
-                            A[ aps.ix[ns.IATA_Code[from]]
-                                    ,aps.ix[ns.IATA_Code[to]] ]                                                        
-        end
+    #for each [from,to] pair, delegate to aux function psg
+    for from ∈ 1:dim, to ∈ 1:dim 
+        outM[from,to] = psg(from,to,ns,aps) #NB! reflexive flights are set to 0.0
     end 
     return outM
+end
 
-end #end mkPsgMx()
+#=
+NB! now a method for partition-to-partition flights
+`ns` MUST have [:IATA_code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+=#
+function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict)
+    retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
+    aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  #get the daily AP-to-AP flows for the designated APs
+    dim = nrow(pns) #final output matrix is [dim × dim], for nodes in `pns`
+    outM = fill(0.0, (dim,dim))
+#proceed column-wise
+    for pto ∈ 1:dim, pfrom ∈ 1:dim
+        if pfrom == pto
+            outM[pfrom,pto]=0.0 #no reflexive air travel
+        else #sum the travel between consituents
+            outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps)
+                    for efrom ∈ prt[pns.Name[pfrom]], eto ∈ prt[pns.Name[pto]])
+        end
+    end
+    return outM
+end
 
-#-------COMMUTER---FLOW--------------------#
 
-# dim = length(allAPs) #the matrix' will be [dim × dim]
-# ixs = zip(allAPs, 1:dim) |> Dict #get index by name 
-# xis = zip(1:dim,allAPs) |> Dict #get name by index
-# #init the matrix with all 0.0, screw the missings, I am nullifying them anyway
-# outM = fill(0.0,(dim,dim))
-# #fill the matrix with the *known* values
-# [outM[ixs[row.ORG],ixs[row.DST]] = row.PSG  for row ∈ eachrow(idf)]
+#---AUX::---AIR---PASSENGER---FLOW---MATRIX----------------------#
+#APs MUST be a NamedTuple (M,ix,xi), as returned by mkFlightMx2
+#ns MUST have [:shr,:IATA_Code]
+function psg(from::Integer,to::Integer,ns::DataFrame,APs)
+    if ns.IATA_Code[from] ≠ ns.IATA_Code[to]
+        return ns.shr[from] * ns.shr[to] * APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]]
+    else return 0.0
+    end
+end
 
-# return (M= outM, ix=ixs,xi=xis)
+#---AUX::---PARTITION---AND---REVERSE------------------------#
+function partByCty(ns::DataFrame,pns::DataFrame)
+    Dict(x => filter(ri -> ns.Ste[ri]==split(x,"~")[1] && 
+                        ns.Cty[ri]==split(x,"~")[2],
+                        1:nrow(ns)) for x ∈ pns.Name)
+end
+
+#cruel: makes states unique
+function partBySte(ns::DataFrame,pns::DataFrame)
+    Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
+end
+
+#part:: Name1 => [ns_row_indices],
+#out:: ns_row_index => Name1 
+function revexplPart(dict::Dict)
+    ( v => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
+#like above but also restore the Names of entries
+# ns MUST have [:Name]
+function revexplPart(dict::Dict, ns::DataFrame)
+    ( ns.Name[v] => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
+#like above but also map the keys' names to `indices`
+# ns MUST have [:Name]; ix:: Name => partition_index
+function revexplPart(dict::Dict, ns::DataFrame,ix::Dict)
+    ( ns.Name[v] => ix[k]  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
+#======COMMUTER=====FLOW==================#
+
+#--AUX:--READ--CMT------#
+#show the wf names
+function lsWf(ins::NamingSpec = fn)
+    filter(s::String -> startswith(s,"usa-wf-"),readdir(ins.ifDir))
+end
+
+ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf()) 
 
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
@@ -416,15 +499,28 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3 #add them all together
     #combine the State,County,Tract triples into single columns
     insertcols!(wfs4, 1, 
-        ORG = map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
+        :ORG => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
     insertcols!(wfs4, 2, 
-        DST = map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
+        :DST => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
     rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
     select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
     sort!(wfs4,[:ORG,:DST])
 
     return wfs4
 end
+
+#=return  the commutes for tracts not present in `ns`
+ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
+=#
+function scrubWfs(ns::DataFrame,wfs::DataFrame)
+    allCmtTracts = (wfs.ORG |> unique) ∪ (wfs.DST |> unique)
+     #these tracts are not present in FluTE's `us-tracts.dat`
+    notPresent = setdiff(allCmtTracts,ns.Name)
+    retwfs = filter(r -> r.ORG ∉ notPresent && r.DST ∉ notPresent,eachrow(wfs))
+    return retwfs
+end
+
+
 
 #--------COMMUTER---FLOW---MATRIX--------------#
 
@@ -444,6 +540,85 @@ function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     return outM
 end
 
+#=
+NB! now a method for partition-to-partition commute
+`ns` MUST have [:Name]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+partition is reversed by a helper function, hence the need for `ns` and `pns` to have :Name
+=#
+
+function mkCmtMx(ns::DataFrame,pns::DataFrame,prt::Dict,wfs::DataFrame)
+    if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
+        error("Wrong DF! Terminating.")
+    end
+    dim = nrow(pns) 
+    ixs = zip(pns.Name, 1:dim) |> Dict # Name => index
+   # xis = zip(1:dim, pns.Name) |> Dict # index => Name
+    revp = Oboe.revexplPart(prt,ns,ixs) #generate the reverse-exploded partition
+    outM = fill(0.0,(dim,dim)) # part-to-part commute matrix, init to 0.0
+    for trip ∈ eachrow(wfs)
+        if revp[trip.ORG] ≠ revp[trip.DST] # assuming the commute was not reflexive,
+            outM[revp[trip.ORG],revp[trip.DST]]+= trip.CMT #count it in outM[pfrom,pto]
+        end
+    end
+    return outM
+end
+
+#=========OUTPUT===PREP=========================#
+
+#-----AUX----------------------#
+
+#= Select an `id`-generating function
+0. if it's a census tract, just write $Ste~$Cty~$Tra
+1. if it's a county or a state, write as Integer to match `us-10m.json`
+2. if it's a Voronoi cell of an AP, write the AP's IATA_Code
+=#
+function select_mkid(nms::Array{String})
+    if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
+         return r-> join([r.Ste,r.Cty,r.Tra],"~")
+    elseif ["Ste","Cty"] ⊆ nms #node's a county, must accomodate `us-10m.json`
+         return r-> parse(Int,r.Ste*"000") + parse(Int,r.Cty)
+    elseif  ["Ste"] ⊆ nms #node's a state, must accomodate `us-10m.json`
+         return r-> parse(Int,r.Ste)
+     elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
+         return r -> r.IATA_Code
+     else
+        error("Nodes header not recognized. Can't generate an :id without FIPS or IATA_Code.")
+     end
+ end
+
+
+
+#= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
+input MUST have [:I_i,:S_i]=#
+function infect!(ns::DataFrame)
+    if ns.I_i[1] == 0
+        ns[1,:S_i]-=1
+        ns[1,:I_i]+=1
+    end
+    return ns
+end
+#-----INITIAL---VALUES----------------------#
+
+#=
+input MUST have [:Pop,:Name,:LAT,:LNG]
+input SHOULD have [:IATA_Code], if absent, inserted as "dummy"
+out spec: [:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG]
+=#
+function ns2iv_sterile(ns::DataFrame)
+    out = copy(ns)
+    rename!(out, :Pop => :N_i) 
+    insertcols!(out,1,:id => map(select_mkid(names(out)), eachrow(out)))
+    insertcols!(out,4, :S_i => out.N_i)
+    insertcols!(out,5, :I_i => zeros(Int64,nrow(out)))
+    insertcols!(out,6, :R_i => zeros(Int64,nrow(out)))
+    if "IATA_Code" ∉ names(out)
+        insertcols!(out,2,:IATA_Code => repeat(["dummy"],nrow(out)))
+    end
+    select(out,[:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG])
+end
+
+#quick delegate for the most common use case
+ns2iv(ns::DataFrame) = ns2iv_sterile(ns) |> infect! 
 
 
 #=========AUX---DBG==================#
@@ -497,7 +672,25 @@ end #end module Oboe
 # #finally, compute NODE-NODE daily air passengers
 # nnPsg=Oboe.mkPsgMx(ns2)
 
-
 # fipsNW=["41","53"]
 # iwfs=Oboe.rdTidyWfsByFIPS(fipsNW)
 # nnCmtMx = Oboe.mkCmtMx(ns2,iwfs)
+#----OUTPUT---SPEC---STRUCT---------------#
+# #prototype v2 namespec, just for output
+# struct outNameSpec
+#     s::String
+#     ss::String
+#     ofDir::String
+#     airsuff::String
+#     cmtsuff::String
+#     trvsuff::String
+# end
+
+# global const ofn=(
+#     s="-",ss="_",
+#     ofDir = joinpath("..","data","by-tract"),
+#     initsuff="-init.csv", #initial conditions
+#     airsuff="-air.dat", #dense matrix, air passengers per day
+#     cmtsuff="-cmt.dat", #dense matrix, commuters per day (ridiculous!)
+#     trvsuff="-trv.dat" #dense matrix, air + commute per day
+#     )
