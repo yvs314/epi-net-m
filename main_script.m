@@ -1,9 +1,9 @@
 %% Networked SIR simulator
 %
-% Authorship: Shuang Gao, Rinel Foguen, and Yaroslav Salii
+% Authorship:  Yaroslav Salii, Shuang Gao, and Rinel Foguen
 % 
 % Plotting facilities: 
-    %Trajectory.m (SG) for 3D overview
+    %Trajectory.m (SG, YS) for 3D overview
     %figStacked.m (YS) for per-node stacked i+s+r 
 % Directories: (set by $figDir and $instDir)
     %./fig is for saving the figures (not tracked by git!)
@@ -77,7 +77,7 @@ end
 % set the right coupling code
 nCPG="undef"; %init the coupling code; I'm scared of var init inside if block
 if (useFlightData)
-    nCPG = "flug";
+    nCPG = "trav";
 else
     nCPG="eps_one";
 end
@@ -111,8 +111,8 @@ X_0 = flattenRowMjr(X0_frac);
 %% Read/Set the Coupling Data
 %CAVEAT: no symmetrization yet
 if(useFlightData)  %read and process daily passengers
-    % must have city pops N=(N1,...,Nn) on the diagonal
-    A = purgeDiag(load(iFlugPath))+diag(bN);
+    % must have 1 on the diagonal in dynamics; divide row-wise by city pops bN
+    A = (purgeDiag(load(iFlugPath))+diag(bN)) * diag(arrayfun(@(x) 1/x,bN));
 else
     A = mkEpsOneMx(nodeNum,1e-4); % epsilon-one full connectivity
    %A = eye(nodeNum); %no coupling, another debug variant
@@ -138,15 +138,6 @@ D2 = zeros(nodeDim,nodeDim) ;
 D2(1,2) = -1 ;
 D2(2,2) = 1 ;
 
-%if using (absolute) daily passengers
-if(useFlightData)
-    %add division by each city's population
-    absCorr=diag(arrayfun(@(x) 1/x,bN));
-else %we use fractional "connection intensities", not absolute psg/day
-    %no need to divide by anything, just use the scalar 1 matrix
-    absCorr=eye(nodeNum);
-end
-
 %% Run and Time the Dynamic Simulation
 disp("Running the simulation");
 tic
@@ -154,9 +145,7 @@ for j=1:nSteps %for every time step
     %form the infection propagation and transport term D3:
     %from X=[s_1(j) i_1(j) ... s_last(j) i_last(j)],
     %kron() picks every second one, the susceptibles [s_1(j) ... s_last(j)]
-    %if using *absolute passengers per day* (useFlightData=true)
-    %then we also divide each by the city population (see absCorr above)
-    D3  = diag(kron(absCorr,[1,0])* X(:,j)); 
+    D3  = diag(kron(eye(nodeNum),[1,0])* X(:,j)); 
     U   = diag(u) ;  
     Z   =  kron(eye(nodeNum),D1)*dt +  dt*beta*kron( (D3*A) , D2 ) ... 
         -  dt*beta*kron( (U*D3*A) , D2 ) ;
@@ -254,8 +243,6 @@ toc
 writematrix(outTabFracDaily,strcat(pathOutTabFrac,'.csv'))
 writematrix(outTabAbsDaily,strcat(pathOutTabAbs,'.csv'))
 
-%% dbf lf: for calling local functions from command line
-lf = localfunctions;
 %% aux: Make Output Table
 %TODO: switch the output display from ticks to days, using stepsPerDay
 % takes the 3 compartments' time series, e.g. s_1,\dots,s_n[0,tFin], i, r
