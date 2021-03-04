@@ -52,11 +52,31 @@ nodeNum = size(tIVs,1); %as many nodes as there are rows
 N = table2array(tIVs(:,3)); %the population vector
 iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N etc.
 
+s0=table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
+z0=table2array(tIVs(:,5)) .* iN; %infecteds at t=0, frac
+
 % $pathTrav is just a matrix (floating point vals)
 Araw = load(pathTrav(inst)); 
 % set its diagonal to pops N, then divide row-wise by N (traveling fracs)
 A = diag(iN)* (Araw - diag(Araw) + diag(N));
 %% Model Parameters
 % these follow (El Ouardighi, Khmelnitsky, Sethi, 2020)
+
+%INFECTION and RECOVERY RATES
+%baseline R_0=2.74; beta/gamma 63%
+%set to harmonic mean of \alpha and \beta from idem
+beta = 0.1196; % 1/(1/ 0.2977 + 1/0.2); %infection rate; 
+%1/beta = 8.36 mean time to be (symptomatic) infected
+gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma 
+%1/gamma = 22.904 mean time to recovery
+
+%RUNNING COSTS      l for lockdown (control)
+c = 200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
+l = 450; %running cost of control; (q3=450, securing social interactions)
+%TERMINAL COST
+k = 2000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
+%FATIGUE RATES      (PI/PD-SF) 
+r1 = 0.002; %infection rates fatigue rate
+r2 = 0.002; %lockdown control fatigue rate
 
 tFin = 180; %time is [0,tFin]
