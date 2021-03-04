@@ -112,7 +112,7 @@ X_0 = flattenRowMjr(X0_frac);
 %CAVEAT: no symmetrization yet
 if(useFlightData)  %read and process daily passengers
     % must have 1 on the diagonal in dynamics; divide row-wise by city pops bN
-    A = (purgeDiag(load(iFlugPath))+diag(bN)) * diag(arrayfun(@(x) 1/x,bN));
+    A = diag(arrayfun(@(x) 1/x,bN)) * (purgeDiag(load(iFlugPath))+diag(bN)) ;
 else
     A = mkEpsOneMx(nodeNum,1e-4); % epsilon-one full connectivity
    %A = eye(nodeNum); %no coupling, another debug variant
