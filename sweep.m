@@ -41,24 +41,7 @@ pathTrav = @(iname) fullfile(instDir,iname+fnSep+trav_suff); %path to the travel
 pathOutTabAbs = @(iname) fullfile(outDir,join([iname,"abs"],fnSep));
 pathOutTabFrac = @(iname) fullfile(outDir,join([iname,"frac"],fnSep));
 
-%% Problem Instance (initial values, populations, and travel matrix)
-%inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 
-% $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
-tIVs = readtable(pathIV(inst));
-
-nodeNum = size(tIVs,1); %as many nodes as there are rows
-N = table2array(tIVs(:,3)); %the population vector
-iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N etc.
-
-s0=table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
-z0=table2array(tIVs(:,5)) .* iN; %infecteds at t=0, frac
-
-% $pathTrav is just a matrix (floating point vals)
-Araw = load(pathTrav(inst)); 
-% set its diagonal to pops N, then divide row-wise by N (traveling fracs)
-A = diag(iN)* (Araw - diag(Araw) + diag(N));
 %% Model Parameters
 % these follow (El Ouardighi, Khmelnitsky, Sethi, 2020)
 
@@ -79,4 +62,42 @@ k = 2000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
 r1 = 0.002; %infection rates fatigue rate
 r2 = 0.002; %lockdown control fatigue rate
 
-tFin = 180; %time is [0,tFin]
+T = 180; %time is [0,T]
+
+umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
+
+%% Problem Instance (initial values, populations, and travel matrix)
+%inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
+inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+
+% $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
+tIVs = readtable(pathIV(inst));
+
+nodeNum = size(tIVs,1); %as many nodes as there are rows
+N = table2array(tIVs(:,3)); %the population vector
+iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N etc.
+
+%STATE: initial conditions
+s0=table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
+z0=table2array(tIVs(:,5)) .* iN; %infecteds at t=0, frac
+
+%COSTATE: terminal values from transversality conditions (column vectors!)
+lasT = zeros(nodeNum,1); %\lambda_s(T) = 0_n
+lazT = exp(r1*T)*k*N; %\lambda_z(T) = e^{r_1T}kN
+
+% $pathTrav is just a matrix (floating point vals)
+Araw = load(pathTrav(inst)); 
+% set its diagonal to pops N, then divide row-wise by N (traveling fracs)
+A = diag(iN)* (Araw - diag(Araw) + diag(N));
+
+%% Sweep setup
+
+%0-INIT: state, co-state, and control; caveat: wrong discretization
+s = zeros(nodeNum,T+1);
+z = zeros(nodeNum,T+1);
+las = zeros(nodeNum,T+1);
+laz = zeros(nodeNum,T+1);
+u = zeros(nodeNum,T+1);
+
+s(:,1) = s0; z(:,1) = z0; %set initial conditions for state
+las(:,T+1)=lasT; laz(:,T+1)=lazT; %set terminal conditions for costate
