@@ -64,12 +64,13 @@ r2 = 0.002; %lockdown control fatigue rate
 
 %%TIME
 T = 180; %time is [0,T], in days
-tSpan = linspace(0,T,T+1); %time points for *output*, 1 per day
+%tSpan = linspace(0,T,T+1); %time points for *output*, 1 per day
 
 %CONTROL bounds (for each component, at each time)
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
 
 %% Problem Instance (initial values, populations, and travel matrix)
+%inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
 %inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
 inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 
@@ -93,6 +94,7 @@ Araw = load(pathTrav(inst));
 % set its diagonal to pops N, then divide row-wise by N (traveling fracs)
 A = diag(iN)* (Araw - diag(Araw) + diag(N));
 
+
 %% Sweep setup
 
 %0-INIT: state, co-state, and control; caveat: wrong discretization
@@ -108,11 +110,14 @@ las(:,T+1)=lasT; laz(:,T+1)=lazT; %set terminal conditions for costate
 
 %combined state & costate vectors, [2n \times tSpan]
 x = [s; z];
-lx = [las; laz];
+lax = [las; laz];
 %% State equation
 
-%fxt1 = @(x) fuxtp(zeros(nodeNum,1),0,x,beta,gamma,A);
-%compute dx = [ds; dz], compatible with ode45 etc.
-fxt2 = @(t,x) fuxtp(zeros(nodeNum,1),t,x,beta,gamma,A);
-sln = ode45(fxt2, [0 T], x(:,1));
-%deval(sln, 
+
+%compute dx = [ds; dz], compatible with ode45 
+ftx2 = @(t,x) futxp(zeros(nodeNum,1),t,x,beta,gamma,A);
+%SOLVE with zero control (the zeros(n,1) in fxt2)
+tic
+    sln = ode45(ftx2, [0 T], x(:,1));
+    xn = deval(sln, 0:T );
+toc 
