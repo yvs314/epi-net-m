@@ -113,6 +113,6 @@ lx = [las; laz];
 
 %fxt1 = @(x) fuxtp(zeros(nodeNum,1),0,x,beta,gamma,A);
 %compute dx = [ds; dz], compatible with ode45 etc.
-fxt2 = @(x,t) fuxtp(zeros(nodeNum,1),t,x,beta,gamma,A);
+fxt2 = @(t,x) fuxtp(zeros(nodeNum,1),t,x,beta,gamma,A);
 sln = ode45(fxt2, [0 T], x(:,1));
 %deval(sln, 
