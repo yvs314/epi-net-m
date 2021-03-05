@@ -62,8 +62,11 @@ k = 2000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
 r1 = 0.002; %infection rates fatigue rate
 r2 = 0.002; %lockdown control fatigue rate
 
-T = 180; %time is [0,T]
+%%TIME
+T = 180; %time is [0,T], in days
+tSpan = linspace(0,T,T+1); %time points for *output*, 1 per day
 
+%CONTROL bounds (for each component, at each time)
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
 
 %% Problem Instance (initial values, populations, and travel matrix)
@@ -95,9 +98,21 @@ A = diag(iN)* (Araw - diag(Araw) + diag(N));
 %0-INIT: state, co-state, and control; caveat: wrong discretization
 s = zeros(nodeNum,T+1);
 z = zeros(nodeNum,T+1);
+
 las = zeros(nodeNum,T+1);
 laz = zeros(nodeNum,T+1);
 u = zeros(nodeNum,T+1);
 
 s(:,1) = s0; z(:,1) = z0; %set initial conditions for state
 las(:,T+1)=lasT; laz(:,T+1)=lazT; %set terminal conditions for costate
+
+%combined state & costate vectors, [2n \times tSpan]
+x = [s; z];
+lx = [las; laz];
+%% State equation
+
+%fxt1 = @(x) fuxtp(zeros(nodeNum,1),0,x,beta,gamma,A);
+%compute dx = [ds; dz], compatible with ode45 etc.
+fxt2 = @(x,t) fuxtp(zeros(nodeNum,1),t,x,beta,gamma,A);
+sln = ode45(fxt2, [0 T], x(:,1));
+%deval(sln, 
