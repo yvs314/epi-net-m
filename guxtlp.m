@@ -5,7 +5,8 @@
     %   \beta{\mathbf{A}}^\top (\lambda_s - \lambda_z)
     %   \odot\bar{u}\odot s 
     %   + \gamma\lambda_z}
-%input lax=[la_s;la_z] output as dlax=[las;laz]
+%input x as ode45's solution at t; lax=[la_s;la_z] 
+%output as dlax=[las;laz]
 
 
 function dlax = guxtlp(u,x,t,lax,beta,gamma,A,r1,c,N) 

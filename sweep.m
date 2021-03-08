@@ -13,6 +13,7 @@
         %sample: a~NW~cty_75[-init.csv,-trav.dat], 75 counties in OR and WS
     % Output tables: $NAME_$SIZE-$CPG-[abs | frac]-out.csv
 % 2021-03-04 v.0.1 up to reading IVs and travel matrix
+% 2021-03-08 v.0.2 numeric solutions for state & co-state eqs
 
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
@@ -117,7 +118,20 @@ lax = [las; laz];
 %compute dx = [ds; dz], compatible with ode45 
 ftx2 = @(t,x) futxp(zeros(nodeNum,1),t,x,beta,gamma,A);
 %SOLVE with zero control (the zeros(n,1) in fxt2)
+disp('Run ode45 on IVP for state x---forwards from 0 to T')
 tic
-    sln = ode45(ftx2, [0 T], x(:,1));
-    xn = deval(sln, 0:T );
+    x_sln = ode45(ftx2, [0 T], x(:,1)); %consider setting 'NonNegative' flag
+    xn = deval(x_sln, 0:T );
 toc 
+
+%set the parameters for costate's RHS column, compat with ode45
+%state is supplied through deval(x_sln, t)
+gtx1 = @(t,lax) guxtlp(zeros(nodeNum,1), deval(x_sln, t) ...
+                        , t, lax ...
+                        , beta, gamma, A, r1, c, N);
+                    
+disp('Run ode45 on IVP for costate lax---backwards from T to 0');
+tic
+    lax_sln = ode45(gtx1, [T 0], lax(:,end));
+    laxn = deval(lax_sln, 0:T);
+toc
