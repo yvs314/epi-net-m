@@ -14,6 +14,7 @@
     % Output tables: $NAME_$SIZE-$CPG-[abs | frac]-out.csv
 % 2021-03-04 v.0.1 up to reading IVs and travel matrix
 % 2021-03-08 v.0.2 numeric solutions for state & co-state eqs
+% 2021-03-08 v.0.3 control computed from state & costate values
 
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
@@ -71,9 +72,9 @@ T = 180; %time is [0,T], in days
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
 
 %% Problem Instance (initial values, populations, and travel matrix)
-%inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
+inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
 %inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+%inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
@@ -121,7 +122,7 @@ ftx2 = @(t,x) futxp(zeros(nodeNum,1),t,x,beta,gamma,A);
 disp('Run ode45 on IVP for state x---forwards from 0 to T')
 tic
     x_sln = ode45(ftx2, [0 T], x(:,1)); %consider setting 'NonNegative' flag
-    xn = deval(x_sln, 0:T );
+    x = deval(x_sln, 0:T );
 toc 
 
 %set the parameters for costate's RHS column, compat with ode45
@@ -133,5 +134,17 @@ gtx1 = @(t,lax) guxtlp(zeros(nodeNum,1), deval(x_sln, t) ...
 disp('Run ode45 on IVP for costate lax---backwards from T to 0');
 tic
     lax_sln = ode45(gtx1, [T 0], lax(:,end));
-    laxn = deval(lax_sln, 0:T);
+    lax = deval(lax_sln, 0:T);
+toc
+%% Compute optimal control---test
+disp('Compute the optimal control on points 0..T');
+tic
+    %carve the state and costate into [s; z] and [las; laz]
+    s = x(1:nodeNum,:); z = x(nodeNum+1:end,:);
+    las = lax(1:nodeNum,:); laz = lax(nodeNum+1:end,:);
+    %let's compute control in the very vector form
+    myexp = arrayfun( @(t) exp(-r2*t), 0:T); %make the exponents for each time
+    time_dep_term = repmat((beta/l) * myexp, nodeNum,1);%[n \times |\mathcal{T}|]
+    u1 = time_dep_term .* (laz - las) .* s .* iN .* (A * z);
+    u2 = min(max(u1,umin),umax); %apply the bounds
 toc
