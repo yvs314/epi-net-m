@@ -69,7 +69,7 @@ r2 = 0.002; %lockdown control fatigue rate
 
 %%TIME
 T = 180; %time is [0,T], in days
-%tArr = 0:T that's the de fact usage
+%tArr = 0:T that's the de facto usage
 
 %CONTROL bounds (for each component, at each time)
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
@@ -82,17 +82,19 @@ inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
 
-nodeNum = size(tIVs,1); %as many nodes as there are rows
+n = size(tIVs,1); %as many nodes as there are rows
 N = table2array(tIVs(:,3)); %the population vector
 iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N etc.
 
 %STATE: initial conditions
-s0=table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
-z0=table2array(tIVs(:,5)) .* iN; %infecteds at t=0, frac
+s0 = table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
+z0 = table2array(tIVs(:,5)) .* iN; %infecteds at t=0, frac
+x0 = [s0;z0]; %overall state is [s;z]
 
 %COSTATE: terminal values from transversality conditions (column vectors!)
-lasT = zeros(nodeNum,1); %\lambda_s(T) = 0_n
+lasT = zeros(n,1); %\lambda_s(T) = 0_n
 lazT = exp(r1*T)*k*N; %\lambda_z(T) = e^{r_1T}kN
+laxT = [lasT;lazT]; %costate is [\lambda_s; \lambda_z]
 
 % $pathTrav is just a matrix (floating point vals)
 Araw = load(pathTrav(inst)); 
@@ -102,55 +104,53 @@ A = diag(iN)* (Araw - diag(Araw) + diag(N));
 
 %% Sweep setup
 
-%0-INIT: state, co-state, and control; caveat: wrong discretization
-s = zeros(nodeNum,T+1);
-z = zeros(nodeNum,T+1);
-
-las = zeros(nodeNum,T+1);
-laz = zeros(nodeNum,T+1);
+%STATE: 0-init [2n \times |tArr|] + initial conditions
+x = zeros(n*2,T+1); x(:,1) = x0;
+%COSTATE: 0-init [2n \times |tArr|] + terminal conditions
+lax = zeros(n*2,T+1); lax(:,end) = laxT;
 
 %CONTROL
-u = zeros(nodeNum,T+1); %initial guess: constant zero 
+u = zeros(n,T+1); %initial guess: constant zero 
 ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 
-s(:,1) = s0; z(:,1) = z0; %set initial conditions for state
-las(:,T+1)=lasT; laz(:,T+1)=lazT; %set terminal conditions for costate
+%MISC
+delta = 0.001; %coeff. for norms of u,x,lax in stopping conditions
+test = -1.0; %ensure the loop is entered
+ct = 0; %set the loop counter
+%% Forward-Backward Sweep Loop
+while(test < 0)
+    fprintf('Loop no. %d\n',ct); ct = ct+1;
+    
+    oldu = u; ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
+    oldx = x;
+    oldlax = lax;
+    %set the parameters for state's RHS column, compatible with ode45
+    ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
 
-%combined state & costate vectors, [2n \times tSpan]
-x = [s; z];
-lax = [las; laz];
-%% State equation
+    %SOLVE with zero control (the zeros(n,1) in fxt2)
+    disp('Run ode45 on IVP for state x---forwards from 0 to T')
+    tic
+        x_sln = ode45(ftx1, [0 T], x(:,1));
+        x = deval(x_sln, 0:T );
+    toc 
+
+    %set the parameters for costate's RHS column, compat with ode45
+    %state through deval(x_sln, t); control through spline appx ppu
+    gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
+        , t, lax ...
+        , beta, gamma, A, r1, c, N);
 
 
-%compute state eq. dx = [ds; dz], compatible with ode45, spline-fitted control
-ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
+    disp('Run ode45 on IVP for costate lax---backwards from T to 0');
+    tic
+        lax_sln = ode45(gtx1, [T 0], lax(:,end));
+        lax = deval(lax_sln, 0:T);
+    toc
 
-%SOLVE with zero control (the zeros(n,1) in fxt2)
-disp('Run ode45 on IVP for state x---forwards from 0 to T')
-tic
-    x_sln = ode45(ftx1, [0 T], x(:,1)); %consider setting 'NonNegative' flag
-    x = deval(x_sln, 0:T );
-toc 
-
-%set the parameters for costate's RHS column, compat with ode45
-%costate is supplied through deval(x_sln, t)
-gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
-    , t, lax ...
-    , beta, gamma, A, r1, c, N);
-
-                    
-disp('Run ode45 on IVP for costate lax---backwards from T to 0');
-tic
-    lax_sln = ode45(gtx1, [T 0], lax(:,end));
-    lax = deval(lax_sln, 0:T);
-toc
-
-%% Compute optimal control---test
-
-%set the parameters for the vector control computation
-utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
-disp('Compute the optimal control at points 0..T');
-tic
-    unew = utxla1(0:T,x,lax);
-toc
-
+    %Compute new guess of optimal control
+    %set the parameters for the vector control computation
+    utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
+    disp('Compute the optimal control at points 0..T');
+    tic; unew = utxla1(0:T,x,lax); toc
+end %next sweep iteration
+%% Something else
