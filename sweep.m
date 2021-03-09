@@ -72,9 +72,9 @@ T = 180; %time is [0,T], in days
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
 
 %% Problem Instance (initial values, populations, and travel matrix)
-inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
+%inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
 %inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-%inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
@@ -137,14 +137,10 @@ tic
     lax = deval(lax_sln, 0:T);
 toc
 %% Compute optimal control---test
+
+%set the parameters for the vector control computation
+utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
 disp('Compute the optimal control on points 0..T');
 tic
-    %carve the state and costate into [s; z] and [las; laz]
-    s = x(1:nodeNum,:); z = x(nodeNum+1:end,:);
-    las = lax(1:nodeNum,:); laz = lax(nodeNum+1:end,:);
-    %let's compute control in the very vector form
-    myexp = arrayfun( @(t) exp(-r2*t), 0:T); %make the exponents for each time
-    time_dep_term = repmat((beta/l) * myexp, nodeNum,1);%[n \times |\mathcal{T}|]
-    u1 = time_dep_term .* (laz - las) .* s .* iN .* (A * z);
-    u2 = min(max(u1,umin),umax); %apply the bounds
+    unew = utxla1(0:T,x,lax);
 toc
