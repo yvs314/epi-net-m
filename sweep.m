@@ -15,7 +15,10 @@
 % 2021-03-04 v.0.1 up to reading IVs and travel matrix
 % 2021-03-08 v.0.2 numeric solutions for state & co-state eqs
 % 2021-03-08 v.0.3 control computed from state & costate values
+% 2021-03-09 v.0.4 control spline-fitted, monotone piecewise cubic H.(pchip)
 
+%% TODO
+% switch to tArr instead of “magical numbers” 0:T / T:0 / [0 T]
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
@@ -35,11 +38,11 @@ fnSubSep="_"; %use _ to subdivide file name fields
 IV_suff="init.csv"; %all instances IVs end like this 
 trav_suff="trav.dat"; %all instances' travel data end like this
 
-%IV_Path=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
+%INPUT PATHS & FILENAMES
 pathIV= @(iname) fullfile(instDir,iname+fnSep+IV_suff); %path to the IVs
 pathTrav = @(iname) fullfile(instDir,iname+fnSep+trav_suff); %path to the travel data, if any
 
-%paths to output tables
+%OUTPUT PATHS & FILENAMES
 pathOutTabAbs = @(iname) fullfile(outDir,join([iname,"abs"],fnSep));
 pathOutTabFrac = @(iname) fullfile(outDir,join([iname,"frac"],fnSep));
 
@@ -66,7 +69,7 @@ r2 = 0.002; %lockdown control fatigue rate
 
 %%TIME
 T = 180; %time is [0,T], in days
-%tSpan = linspace(0,T,T+1); %time points for *output*, 1 per day
+%tArr = 0:T that's the de fact usage
 
 %CONTROL bounds (for each component, at each time)
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
@@ -105,7 +108,10 @@ z = zeros(nodeNum,T+1);
 
 las = zeros(nodeNum,T+1);
 laz = zeros(nodeNum,T+1);
-u = zeros(nodeNum,T+1);
+
+%CONTROL
+u = zeros(nodeNum,T+1); %initial guess: constant zero 
+ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 
 s(:,1) = s0; z(:,1) = z0; %set initial conditions for state
 las(:,T+1)=lasT; laz(:,T+1)=lazT; %set terminal conditions for costate
@@ -116,31 +122,35 @@ lax = [las; laz];
 %% State equation
 
 
-%compute dx = [ds; dz], compatible with ode45 
-ftx2 = @(t,x) futxp(zeros(nodeNum,1),t,x,beta,gamma,A);
+%compute state eq. dx = [ds; dz], compatible with ode45, spline-fitted control
+ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
+
 %SOLVE with zero control (the zeros(n,1) in fxt2)
 disp('Run ode45 on IVP for state x---forwards from 0 to T')
 tic
-    x_sln = ode45(ftx2, [0 T], x(:,1)); %consider setting 'NonNegative' flag
+    x_sln = ode45(ftx1, [0 T], x(:,1)); %consider setting 'NonNegative' flag
     x = deval(x_sln, 0:T );
 toc 
 
 %set the parameters for costate's RHS column, compat with ode45
-%state is supplied through deval(x_sln, t)
-gtx1 = @(t,lax) guxtlp(zeros(nodeNum,1), deval(x_sln, t) ...
-                        , t, lax ...
-                        , beta, gamma, A, r1, c, N);
+%costate is supplied through deval(x_sln, t)
+gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
+    , t, lax ...
+    , beta, gamma, A, r1, c, N);
+
                     
 disp('Run ode45 on IVP for costate lax---backwards from T to 0');
 tic
     lax_sln = ode45(gtx1, [T 0], lax(:,end));
     lax = deval(lax_sln, 0:T);
 toc
+
 %% Compute optimal control---test
 
 %set the parameters for the vector control computation
 utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
-disp('Compute the optimal control on points 0..T');
+disp('Compute the optimal control at points 0..T');
 tic
     unew = utxla1(0:T,x,lax);
 toc
+
