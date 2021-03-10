@@ -16,9 +16,12 @@
 % 2021-03-08 v.0.2 numeric solutions for state & co-state eqs
 % 2021-03-08 v.0.3 control computed from state & costate values
 % 2021-03-09 v.0.4 control spline-fitted, monotone piecewise cubic H.(pchip)
+% 2021-03-10 v.0.5 done forward-backward sweep
 
 %% TODO
-% switch to tArr instead of “magical numbers” 0:T / T:0 / [0 T]
+% 0 results export
+% 1 debug output (time, errors, &c) to a log file
+% 2 switch to tArr instead of “magical numbers” 0:T / T:0 / [0 T]
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
@@ -114,43 +117,52 @@ u = zeros(n,T+1); %initial guess: constant zero
 ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 
 %MISC
-delta = 0.001; %coeff. for norms of u,x,lax in stopping conditions
+delta = 0.001; %min. relative error for norms of u,x,lax in stopping conditions
 test = -1.0; %ensure the loop is entered
+stop_u = false; stop_x = false; stop_lax = false;%ensure the loop is entered
 ct = 0; %set the loop counter
 %% Forward-Backward Sweep Loop
-while(test < 0)
+while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     fprintf('Loop no. %d\n',ct); ct = ct+1;
     
     oldu = u; ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
     oldx = x;
     oldlax = lax;
-    %set the parameters for state's RHS column, compatible with ode45
+    
+    %STATE
     ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
-
-    %SOLVE with zero control (the zeros(n,1) in fxt2)
     disp('Run ode45 on IVP for state x---forwards from 0 to T')
     tic
         x_sln = ode45(ftx1, [0 T], x(:,1));
         x = deval(x_sln, 0:T );
     toc 
 
-    %set the parameters for costate's RHS column, compat with ode45
-    %state through deval(x_sln, t); control through spline appx ppu
+    %COSTATE
     gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
-        , t, lax ...
-        , beta, gamma, A, r1, c, N);
-
-
+        , t, lax, beta, gamma, A, r1, c, N);
     disp('Run ode45 on IVP for costate lax---backwards from T to 0');
     tic
         lax_sln = ode45(gtx1, [T 0], lax(:,end));
         lax = deval(lax_sln, 0:T);
     toc
 
-    %Compute new guess of optimal control
-    %set the parameters for the vector control computation
+    %CONTROL
     utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
     disp('Compute the optimal control at points 0..T');
-    tic; unew = utxla1(0:T,x,lax); toc
+    tic; u1 = utxla1(0:T,x,lax); toc
+    u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
+    
+    %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
+    rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u > 0;
+    rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x > 0;
+    rerr_lax = delta*norm(lax,1) - norm(oldlax - lax,1); stop_lax = rerr_lax > 0;
+    fprintf('\nrerr_u = %4.4f   rerr_x = %4.4f   rerr_lax = %4.4f\n',rerr_u,rerr_x,rerr_lax);
+    
+    %HUMAN-READABLE STOPPING CONDITIONS (relative error ||old_ - _|| / ||_|| < delta)
+    hrerr_u = norm(oldu - u,1)/ norm(u,1);
+    hrerr_x = norm(oldx - x,1) / norm(x,1);
+    hrerr_lax = norm(oldlax - lax,1) / norm(lax,1); 
+    fprintf('hrerr_u = %4.4f   hrerr_x = %4.4f   hrerr_lax = %4.4f\n\n' ... 
+        ,hrerr_u,hrerr_x,hrerr_lax);
 end %next sweep iteration
 %% Something else
