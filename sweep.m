@@ -27,13 +27,13 @@ clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
 %./data/by-tract is for problem instances (IVs + travel matrix)
 instDir="data/by-tract";
-oDirFig = "fig"; %write the output figures and tables here
-if(~exist(oDirFig,"dir"))
-    mkdir(oDirFig); %make sure it exists
+ofigDir = "fig"; %write the output figures and tables here
+if(~exist(ofigDir,"dir"))
+    mkdir(ofigDir); %make sure it exists
 end
-oDirTab = "out"; %write the output figures and tables here
-if(~exist(oDirTab,"dir"))
-    mkdir(oDirTab); %make sure it exists
+otabDir = "out"; %write the output figures and tables here
+if(~exist(otabDir,"dir"))
+    mkdir(otabDir); %make sure it exists
 end
 
 fnSep="-"; %use - to separate file name fields
@@ -46,8 +46,10 @@ pathIV= @(iname) fullfile(instDir,iname+fnSep+IV_suff); %path to the IVs
 pathTrav = @(iname) fullfile(instDir,iname+fnSep+trav_suff); %path to the travel data, if any
 
 %OUTPUT PATHS & FILENAMES
-pathOutTabAbs = @(iname) fullfile(outDir,join([iname,"abs"],fnSep));
-pathOutTabFrac = @(iname) fullfile(outDir,join([iname,"frac"],fnSep));
+%pathOTAbs = @(iname) fullfile(oDirTab,iname+"-abs.csv");
+%pathOTAbs0 = @(iname) fullfile(oDirTab,iname+"-abs0.csv");
+pathOTFrac = @(iname) fullfile(otabDir,iname+"-frac.csv");
+pathOTFrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL control
 
 
 %% Model Parameters
@@ -154,6 +156,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     tic; u1 = utxla1(0:T,x,lax); toc
     u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
     
+    
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
     rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u > 0;
     rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x > 0;
@@ -166,8 +169,24 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     hrerr_lax = norm(oldlax - lax,1) / norm(lax,1); 
     fprintf('hrerr_u = %4.4f   hrerr_x = %4.4f   hrerr_lax = %4.4f\n\n' ... 
         ,hrerr_u,hrerr_x,hrerr_lax);
+    
+    %KEEP NULL-CONTROL solution
+    if(ct == 1)
+        xNull = x; laxNull = lax;
+    end
 end %next sweep iteration
-%% Something else
+
+%% Tabular output
+%slice the state into (s,z,r) compartments
+s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
+sNull = xNull(1:n,:); zNull = xNull(n+1:end,:); rNull = (1 - sNull - zNull);
+
+cns = [arrayfun( @(n) 's'+string(n),0:T) ...
+     arrayfun( @(n) 'z'+string(n),0:T) ...
+     arrayfun( @(n) 'r'+string(n),0:T)];
+ 
+otfrac = array2table([s z r],'VariableNames',cns);
+%% AUXILIARY FUNCTIONS
 %Hi, I'm the running cost term in the objective functional J
 %and I'm too darn small to live in a separate file
 function Ltxu = Ltxu(u,x,t,r1,r2,c,l,N)
