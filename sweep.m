@@ -121,6 +121,8 @@ delta = 0.001; %min. relative error for norms of u,x,lax in stopping conditions
 test = -1.0; %ensure the loop is entered
 stop_u = false; stop_x = false; stop_lax = false;%ensure the loop is entered
 ct = 0; %set the loop counter
+
+
 %% Forward-Backward Sweep Loop
 while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     fprintf('Loop no. %d\n',ct); ct = ct+1;
@@ -166,3 +168,17 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         ,hrerr_u,hrerr_x,hrerr_lax);
 end %next sweep iteration
 %% Something else
+%Hi, I'm the running cost term in the objective functional J
+%and I'm too darn small to live in a separate file
+function Ltxu = Ltxu(u,x,t,r1,r2,c,l,N)
+n = size(u,1); z = x(n+1:end,:);
+Ltxu = dot( exp(r1*t) * c * z + exp(r2*t)*(l/2)*(u .^ 2), N ); 
+end
+
+%Hi, I'm the terminal cost in the objective J and I'm darn too small too
+function PsiT = PsiT(xT,T,r1,N)
+n = size(xT,1) / 2; zT = xT(n+1:end,:);
+PsiT = exp(r1*T) * k * dot(zT,N);
+end
+
+%% BIT BUCKET
