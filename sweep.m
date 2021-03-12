@@ -46,10 +46,10 @@ pathIV= @(iname) fullfile(instDir,iname+fnSep+IV_suff); %path to the IVs
 pathTrav = @(iname) fullfile(instDir,iname+fnSep+trav_suff); %path to the travel data, if any
 
 %OUTPUT PATHS & FILENAMES
-%pathOTAbs = @(iname) fullfile(oDirTab,iname+"-abs.csv");
-%pathOTAbs0 = @(iname) fullfile(oDirTab,iname+"-abs0.csv");
-pathOTFrac = @(iname) fullfile(otabDir,iname+"-frac.csv");
-pathOTFrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL control
+pathotabs = @(iname) fullfile(otabDir,iname+"-abs.csv");
+pathotabs0 = @(iname) fullfile(otabDir,iname+"-abs0.csv");
+pathotfrac = @(iname) fullfile(otabDir,iname+"-frac.csv");
+pathotfrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL control
 
 
 %% Model Parameters
@@ -58,10 +58,13 @@ pathOTFrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL contr
 %INFECTION and RECOVERY RATES
 %baseline R_0=2.74; beta/gamma 63%
 %set to harmonic mean of \alpha and \beta from idem
-beta = 0.1196; % 1/(1/ 0.2977 + 1/0.2); %infection rate; 
+beta = 0.1196; % 1/(1/ 0.2977 + 1/0.2); %infection rate; (idem)
 %1/beta = 8.36 mean time to be (symptomatic) infected
-gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma 
+%beta = 1/2.5; %compat with older
+gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma (idem)
 %1/gamma = 22.904 mean time to recovery
+%gamma = 1/8.3; %compat with older
+
 
 %RUNNING COSTS      l for lockdown (control)
 c = 200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
@@ -185,7 +188,16 @@ cns = [arrayfun( @(n) 's'+string(n),0:T) ...
      arrayfun( @(n) 'z'+string(n),0:T) ...
      arrayfun( @(n) 'r'+string(n),0:T)];
  
-otfrac = array2table([s z r],'VariableNames',cns);
+otfrac = horzcat(tIVs,array2table([s z r],'VariableNames',cns));
+otfrac0 = horzcat(tIVs,array2table([sNull zNull rNull],'VariableNames',cns));
+otabs = horzcat(tIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
+otabs0 = horzcat(tIVs,array2table([sNull zNull rNull] .* N,'VariableNames',upper(cns)));
+
+writetable(otfrac,pathotfrac(inst));
+writetable(otfrac0,pathotfrac0(inst));
+writetable(otabs,pathotabs(inst));
+writetable(otabs0,pathotabs0(inst));
+
 %% AUXILIARY FUNCTIONS
 %Hi, I'm the running cost term in the objective functional J
 %and I'm too darn small to live in a separate file
