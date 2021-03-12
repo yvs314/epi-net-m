@@ -11,16 +11,16 @@
         % $NAME_$SIZE-trav.dat holds daily travelers matrix (air passengers +
         % commuters)
         %sample: a~NW~cty_75[-init.csv,-trav.dat], 75 counties in OR and WS
-    % Output tables: $NAME_$SIZE-$CPG-[abs | frac]-out.csv
+    % Output tables: $NAME_$SIZE-$CPG-[abs | abs0 | frac | frac0].csv
 % 2021-03-04 v.0.1 up to reading IVs and travel matrix
 % 2021-03-08 v.0.2 numeric solutions for state & co-state eqs
 % 2021-03-08 v.0.3 control computed from state & costate values
 % 2021-03-09 v.0.4 control spline-fitted, monotone piecewise cubic H.(pchip)
 % 2021-03-10 v.0.5 done forward-backward sweep
+% 2021-03-12 v.0.6 done obj function and results export
 
 %% TODO
-% 0 results export
-% 1 debug output (time, errors, &c) to a log file
+% 1 debug output (time, errors, J, &c) to a log file
 % 2 switch to tArr instead of “magical numbers” 0:T / T:0 / [0 T]
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
@@ -153,18 +153,26 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         lax = deval(lax_sln, 0:T);
     toc
 
+    %OBJECTIVE FUNCTION
+    Lt1 = @(tArr) Ltxu(ppval(ppu,tArr),deval(x_sln,tArr),tArr,r1,r2,c,l,N); %running cost
+    disp('Compute the objective function J(u,x,T)');
+    tic 
+        PsiT1 = PsiT(x(:,end),T,r1,N,k); %terminal cost
+        J = PsiT1 + integral(Lt1,0,T); %the objective function
+    toc 
+    
     %CONTROL
     utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
     disp('Compute the optimal control at points 0..T');
     tic; u1 = utxla1(0:T,x,lax); toc
     u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
     
-    
+    fprintf('\nJ = %E\n',J); %print the objective function
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
     rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u > 0;
     rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x > 0;
     rerr_lax = delta*norm(lax,1) - norm(oldlax - lax,1); stop_lax = rerr_lax > 0;
-    fprintf('\nrerr_u = %4.4f   rerr_x = %4.4f   rerr_lax = %4.4f\n',rerr_u,rerr_x,rerr_lax);
+    fprintf('rerr_u = %4.4f   rerr_x = %4.4f   rerr_lax = %4.4f\n',rerr_u,rerr_x,rerr_lax);
     
     %HUMAN-READABLE STOPPING CONDITIONS (relative error ||old_ - _|| / ||_|| < delta)
     hrerr_u = norm(oldu - u,1)/ norm(u,1);
@@ -199,15 +207,9 @@ writetable(otabs,pathotabs(inst));
 writetable(otabs0,pathotabs0(inst));
 
 %% AUXILIARY FUNCTIONS
-%Hi, I'm the running cost term in the objective functional J
-%and I'm too darn small to live in a separate file
-function Ltxu = Ltxu(u,x,t,r1,r2,c,l,N)
-n = size(u,1); z = x(n+1:end,:);
-Ltxu = dot( exp(r1*t) * c * z + exp(r2*t)*(l/2)*(u .^ 2), N ); 
-end
 
-%Hi, I'm the terminal cost in the objective J and I'm darn too small too
-function PsiT = PsiT(xT,T,r1,N)
+%Hi, I'm the terminal cost in the objective J and I'm too small for a separate file
+function PsiT = PsiT(xT,T,r1,N,k)
 n = size(xT,1) / 2; zT = xT(n+1:end,:);
 PsiT = exp(r1*T) * k * dot(zT,N);
 end
