@@ -47,10 +47,11 @@ pathTrav = @(iname) fullfile(instDir,iname+fnSep+trav_suff); %path to the travel
 
 %OUTPUT PATHS & FILENAMES
 pathotabs = @(iname) fullfile(otabDir,iname+"-abs.csv");
-pathotabs0 = @(iname) fullfile(otabDir,iname+"-abs0.csv");
+pathotabs0 = @(iname) fullfile(otabDir,iname+"-abs0.csv"); %for the NULL control
 pathotfrac = @(iname) fullfile(otabDir,iname+"-frac.csv");
 pathotfrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL control
-
+%LOG FILE
+pathlog= @(iname) fullfile(otabDir,iname+".log");
 
 %% Model Parameters
 % these follow (El Ouardighi, Khmelnitsky, Sethi, 2020)
@@ -109,25 +110,24 @@ Araw = load(pathTrav(inst));
 % set its diagonal to pops N, then divide row-wise by N (traveling fracs)
 A = diag(iN)* (Araw - diag(Araw) + diag(N));
 
-
 %% Sweep setup
 
 %STATE: 0-init [2n \times |tArr|] + initial conditions
 x = zeros(n*2,T+1); x(:,1) = x0;
 %COSTATE: 0-init [2n \times |tArr|] + terminal conditions
-lax = zeros(n*2,T+1); lax(:,end) = laxT;
+lax = zeros(n*2,T+1); lax(:,end) = laxT; 
 
 %CONTROL
 u = zeros(n,T+1); %initial guess: constant zero 
+%u = ones(n,T+1); %other knee-jerk initial guess: constant 1
 ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 
 %MISC
 delta = 0.001; %min. relative error for norms of u,x,lax in stopping conditions
-test = -1.0; %ensure the loop is entered
 stop_u = false; stop_x = false; stop_lax = false;%ensure the loop is entered
 ct = 0; %set the loop counter
 
-
+opts = odeset('InitialStep',1); %ensure the 1st step is at most 1 day long
 %% Forward-Backward Sweep Loop
 while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     fprintf('Loop no. %d\n',ct); ct = ct+1;
@@ -140,7 +140,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
     disp('Run ode45 on IVP for state x---forwards from 0 to T')
     tic
-        x_sln = ode45(ftx1, [0 T], x(:,1));
+        x_sln = ode45(ftx1, [0 T], x(:,1),opts);
         x = deval(x_sln, 0:T );
     toc 
 
@@ -149,7 +149,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         , t, lax, beta, gamma, A, r1, c, N);
     disp('Run ode45 on IVP for costate lax---backwards from T to 0');
     tic
-        lax_sln = ode45(gtx1, [T 0], lax(:,end));
+        lax_sln = ode45(gtx1, [T 0], lax(:,end), opts);
         lax = deval(lax_sln, 0:T);
     toc
 
@@ -181,9 +181,11 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     fprintf('hrerr_u = %4.4f   hrerr_x = %4.4f   hrerr_lax = %4.4f\n\n' ... 
         ,hrerr_u,hrerr_x,hrerr_lax);
     
+    
+    
     %KEEP NULL-CONTROL solution
     if(ct == 1)
-        xNull = x; laxNull = lax;
+        xNull = x; laxNull = lax; JNull = J;
     end
 end %next sweep iteration
 
