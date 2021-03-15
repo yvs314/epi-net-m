@@ -93,9 +93,9 @@ laxmax=1000; laxmin = -laxmax;
 boundlax = false;
 %boundlax = true; %enforce lax is within bounds
 %% Problem Instance (initial values, populations, and travel matrix)
-inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
+%inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
 %inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-%inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
@@ -190,10 +190,12 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     tic; 
         u1 = utxla1(0:T,x,lax); 
     toc
+    %pick the update that better improves J??? 'd require to keep 2 last
     %u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
-    u = 0.9*oldu + 0.1*u1; %gentle update of u (convex combination)
-    u = min(umax,max(u,umin)); %ensure it doesn't get out of bounds
-    
+    u = 0.9*oldu + 0.1*u1; %a more gentle update of u (convex combination)
+    %u = min(umax,max(u,umin)); %ensure it doesn't get out of bounds
+    %bbupd1 = @(ct,u1,oldu) bbupd(0.5,umin,umax,ct,u1,oldu);
+    %u = bbupd1(ct,u1,oldu);
     
     fprintf('\nJ = %E\n',J); %print the objective function
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
@@ -244,5 +246,21 @@ function PsiT = PsiT(xT,T,r1,NN,k)
 n = size(xT,1) / 2; zT = xT(n+1:end,:);
 PsiT = exp(r1*T) * k * dot(zT,NN);
 end
+
+%update control with exponential backoff to boundaries
+function u = bbupd(a,umin,umax,ct,u1,oldu)
+u = zeros(size(u1)); %preallocate the control
+b = a^ct; %precompute the backoff value
+for t = 1:size(u,2)
+    for nd = 1:size(u,1)
+        if(u1(nd,t) > oldu(nd,t)) %increased since last loop
+            u(nd,t) = umax*(1-b) + oldu(nd,t)*b; %gravitate to umax
+        else
+            u(nd,t) = umin*(1-b) + oldu(nd,t)*b; %gravitate to umin
+        end
+    end
+end
+end
+%would look swell in zip-like statement
 
 %% BIT BUCKET
