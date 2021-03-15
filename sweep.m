@@ -19,6 +19,7 @@
 % 2021-03-10 v.0.5 done forward-backward sweep
 % 2021-03-12 v.0.6 done obj function and results export
 % 2021-03-15 v.0.6.1 normalized pop sizes in objective function
+%      "     v.0.6.2 flags to (a) bound lambda (b) set term. cost to 0
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -69,13 +70,15 @@ gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma (idem)
 
 
 %RUNNING COSTS      l for lockdown (control)
-c = 200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
-l = 450; %running cost of control; (q3=450, securing social interactions)
+c = 0.0200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
+l = 0.0450; %running cost of control; (q3=450, securing social interactions)
 %TERMINAL COST
-k = 2000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
+k = 0.2000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
 %FATIGUE RATES      (PI/PD-SF) 
 r1 = 0.002; %infection rates fatigue rate
+%r1 = 0; %infection rates fatigue rate
 r2 = 0.002; %lockdown control fatigue rate
+%r2 = 0;
 
 %%TIME
 T = 180; %time is [0,T], in days
@@ -84,10 +87,15 @@ T = 180; %time is [0,T], in days
 %CONTROL bounds (for each component, at each time)
 umin = 0; umax = 1; % u_i \in [0,1] \forall i \in nodes
 
+%TEST FLAGS
+killPsi = false; %(if true, set the terminal cost to 0)
+laxmax=1000; laxmin = -laxmax;
+boundlax = false;
+%boundlax = true; %enforce lax is within bounds
 %% Problem Instance (initial values, populations, and travel matrix)
-%inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
+inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
 %inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+%inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
 
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
@@ -108,7 +116,7 @@ x0 = [s0;z0]; %overall state is [s;z]
 %COSTATE: terminal values from transversality conditions (column vectors!)
 lasT = zeros(n,1); %\lambda_s(T) = 0_n
 lazT = exp(r1*T)*k*NN; %\lambda_z(T) = e^{r_1T}k\tilde{N}
-laxT = [lasT;lazT]; %costate is [\lambda_s; \lambda_z]
+laxT = [lasT;lazT]; %costate is [\lambda_s; \lambda_z] 
 
 % $pathTrav is just a matrix (floating point vals)
 Araw = load(pathTrav(inst)); 
@@ -120,7 +128,9 @@ A = diag(iN)* (Araw - diag(Araw) + diag(N));
 %STATE: 0-init [2n \times |tArr|] + initial conditions
 x = zeros(n*2,T+1); x(:,1) = x0;
 %COSTATE: 0-init [2n \times |tArr|] + terminal conditions
-lax = zeros(n*2,T+1); lax(:,end) = laxT; 
+lax = zeros(n*2,T+1); 
+if(~killPsi) 
+    lax(:,end) = laxT; end
 
 %CONTROL
 u = zeros(n,T+1); %initial guess: constant zero 
@@ -156,20 +166,30 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     tic
         lax_sln = ode45(gtx1, [T 0], lax(:,end), opts);
         lax = deval(lax_sln, 0:T);
+        if(boundlax)
+            lax = min(laxmax,max(lax,laxmin));
+        %    pplax = spline(0:T,lax);
+        end
     toc
 
     %OBJECTIVE FUNCTION
     Lt1 = @(tArr) Ltxu(ppval(ppu,tArr),deval(x_sln,tArr),tArr,r1,r2,c,l,NN); %running cost
     disp('Compute the objective function J(u,x,T)');
     tic 
-        PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
+        if (~killPsi)
+            PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
+        else
+            PsiT1 = 0; %no terminal cost, no transversality
+        end
         J = PsiT1 + integral(Lt1,0,T); %the objective function
     toc 
     
     %CONTROL
     utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iNN);
     disp('Compute the optimal control at points 0..T');
-    tic; u1 = utxla1(0:T,x,lax); toc
+    tic; 
+        u1 = utxla1(0:T,x,lax); 
+    toc
     %u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
     u = 0.9*oldu + 0.1*u1; %gentle update of u (convex combination)
     u = min(umax,max(u,umin)); %ensure it doesn't get out of bounds
@@ -196,6 +216,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         xNull = x; laxNull = lax; JNull = J;
     end
 end %next sweep iteration
+fprintf('\n J / JNull = %4.4f\n',J / JNull);
 
 %% Tabular output
 %slice the state into (s,z,r) compartments
