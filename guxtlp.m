@@ -9,14 +9,14 @@
 %output as dlax=[las;laz]
 
 
-function dlax = guxtlp(u,x,t,lax,beta,gamma,A,r1,c,N) 
+function dlax = guxtlp(u,x,t,lax,beta,gamma,A,r1,c,NN) 
 n = size(u,1); %u is [1 \times n], 1 scalar control per node    
 s = x(1:n); z = x(n+1 : end); %get susceptible & infected components
 las = lax(1:n); laz = lax(n+1:end); %likewise for costate
 szd = las - laz; %precompute \lambda_s - \lambda_z, or let JIT do it?
 
 dlas= beta*(szd .* (1-u).* (A * z) );
-dlaz= -exp(r1*t)*c*N ... 
+dlaz= -exp(r1*t)*c*NN ... 
         + beta* ((A') * szd) .* (1-u) .* s ...
         + gamma * laz; 
 dlax = [dlas;dlaz];

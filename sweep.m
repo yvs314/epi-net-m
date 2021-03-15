@@ -18,6 +18,7 @@
 % 2021-03-09 v.0.4 control spline-fitted, monotone piecewise cubic H.(pchip)
 % 2021-03-10 v.0.5 done forward-backward sweep
 % 2021-03-12 v.0.6 done obj function and results export
+% 2021-03-15 v.0.6.1 normalized pop sizes in objective function
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -61,7 +62,7 @@ pathlog= @(iname) fullfile(otabDir,iname+".log");
 %set to harmonic mean of \alpha and \beta from idem
 beta = 0.1196; % 1/(1/ 0.2977 + 1/0.2); %infection rate; (idem)
 %1/beta = 8.36 mean time to be (symptomatic) infected
-%beta = 1/2.5; %compat with older
+%beta = 1/2.5; %compat with older, R_0 = 3.3
 gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma (idem)
 %1/gamma = 22.904 mean time to recovery
 %gamma = 1/8.3; %compat with older
@@ -93,7 +94,11 @@ tIVs = readtable(pathIV(inst));
 
 n = size(tIVs,1); %as many nodes as there are rows
 N = table2array(tIVs(:,3)); %the population vector
-iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N etc.
+iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N (--> A)
+
+NN = N / max(N); %normalized to max pop---for J, etc.
+iNN = arrayfun(@(x) 1/x,NN); %inverse norm-pops, for Hadamard division (--> lax,u,J)
+%NN = ones(n,1); iNN = ones(n,1); %FAT CAVEAT: "egalitarian" pricing
 
 %STATE: initial conditions
 s0 = table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
@@ -102,7 +107,7 @@ x0 = [s0;z0]; %overall state is [s;z]
 
 %COSTATE: terminal values from transversality conditions (column vectors!)
 lasT = zeros(n,1); %\lambda_s(T) = 0_n
-lazT = exp(r1*T)*k*N; %\lambda_z(T) = e^{r_1T}kN
+lazT = exp(r1*T)*k*NN; %\lambda_z(T) = e^{r_1T}k\tilde{N}
 laxT = [lasT;lazT]; %costate is [\lambda_s; \lambda_z]
 
 % $pathTrav is just a matrix (floating point vals)
@@ -146,7 +151,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
 
     %COSTATE
     gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
-        , t, lax, beta, gamma, A, r1, c, N);
+        , t, lax, beta, gamma, A, r1, c, NN);
     disp('Run ode45 on IVP for costate lax---backwards from T to 0');
     tic
         lax_sln = ode45(gtx1, [T 0], lax(:,end), opts);
@@ -154,18 +159,21 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     toc
 
     %OBJECTIVE FUNCTION
-    Lt1 = @(tArr) Ltxu(ppval(ppu,tArr),deval(x_sln,tArr),tArr,r1,r2,c,l,N); %running cost
+    Lt1 = @(tArr) Ltxu(ppval(ppu,tArr),deval(x_sln,tArr),tArr,r1,r2,c,l,NN); %running cost
     disp('Compute the objective function J(u,x,T)');
     tic 
-        PsiT1 = PsiT(x(:,end),T,r1,N,k); %terminal cost
+        PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
         J = PsiT1 + integral(Lt1,0,T); %the objective function
     toc 
     
     %CONTROL
-    utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iN);
+    utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iNN);
     disp('Compute the optimal control at points 0..T');
     tic; u1 = utxla1(0:T,x,lax); toc
-    u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
+    %u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
+    u = 0.9*oldu + 0.1*u1; %gentle update of u (convex combination)
+    u = min(umax,max(u,umin)); %ensure it doesn't get out of bounds
+    
     
     fprintf('\nJ = %E\n',J); %print the objective function
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
@@ -211,9 +219,9 @@ writetable(otabs0,pathotabs0(inst));
 %% AUXILIARY FUNCTIONS
 
 %Hi, I'm the terminal cost in the objective J and I'm too small for a separate file
-function PsiT = PsiT(xT,T,r1,N,k)
+function PsiT = PsiT(xT,T,r1,NN,k)
 n = size(xT,1) / 2; zT = xT(n+1:end,:);
-PsiT = exp(r1*T) * k * dot(zT,N);
+PsiT = exp(r1*T) * k * dot(zT,NN);
 end
 
 %% BIT BUCKET
