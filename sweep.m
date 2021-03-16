@@ -20,6 +20,7 @@
 % 2021-03-12 v.0.6 done obj function and results export
 % 2021-03-15 v.0.6.1 normalized pop sizes in objective function
 %      "     v.0.6.2 flags to (a) bound lambda (b) set term. cost to 0
+% 2021-03-16 v.1.0 done adding control update strategies
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -122,6 +123,7 @@ laxT = [lasT;lazT]; %costate is [\lambda_s; \lambda_z]
 Araw = load(pathTrav(inst)); 
 % set its diagonal to pops N, then divide row-wise by N (traveling fracs)
 A = diag(iN)* (Araw - diag(Araw) + diag(N));
+%A = eye(n); %dumb debug: isolated nodes
 
 %% Sweep setup
 
@@ -147,9 +149,9 @@ opts = odeset('InitialStep',1); %ensure the 1st step is at most 1 day long
 while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     fprintf('Loop no. %d\n',ct); ct = ct+1;
     
+    %store the previous loop's stuff
     oldu = u; ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
-    oldx = x;
-    oldlax = lax;
+    oldx = x; oldlax = lax; 
     
     %STATE
     ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
@@ -190,11 +192,13 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     tic; 
         u1 = utxla1(0:T,x,lax); 
     toc
+    
+    %UPDATE THE CONTROL
     %pick the update that better improves J??? 'd require to keep 2 last
     %u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
     u = 0.9*oldu + 0.1*u1; %a more gentle update of u (convex combination)
-    %u = min(umax,max(u,umin)); %ensure it doesn't get out of bounds
-    %bbupd1 = @(ct,u1,oldu) bbupd(0.5,umin,umax,ct,u1,oldu);
+    %u = u1; %just forget the old stuff: feels bad
+    %bbupd1 = @(ct,u1,oldu) bbupd(0.9,umin,umax,ct,u1,oldu);
     %u = bbupd1(ct,u1,oldu);
     
     fprintf('\nJ = %E\n',J); %print the objective function
@@ -217,8 +221,16 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     if(ct == 1)
         xNull = x; laxNull = lax; JNull = J;
     end
+    
+    if(ct > 300)
+        error("That probably wouldn't converge. Terminating.");
+    end
 end %next sweep iteration
 fprintf('\n J / JNull = %4.4f\n',J / JNull);
+
+if(J / JNull > 1)
+    error("Didn't improve over initial guess. Terminating.");
+end
 
 %% Tabular output
 %slice the state into (s,z,r) compartments
@@ -247,20 +259,20 @@ n = size(xT,1) / 2; zT = xT(n+1:end,:);
 PsiT = exp(r1*T) * k * dot(zT,NN);
 end
 
-%update control with exponential backoff to boundaries
+%update control with exponential backoff to umin and additive to umax
 function u = bbupd(a,umin,umax,ct,u1,oldu)
 u = zeros(size(u1)); %preallocate the control
 b = a^ct; %precompute the backoff value
 for t = 1:size(u,2)
     for nd = 1:size(u,1)
         if(u1(nd,t) > oldu(nd,t)) %increased since last loop
-            u(nd,t) = umax*(1-b) + oldu(nd,t)*b; %gravitate to umax
+            u(nd,t) = umax*(1-a) + a*oldu(nd,t); %additive to umax
         else
-            u(nd,t) = umin*(1-b) + oldu(nd,t)*b; %gravitate to umin
+            u(nd,t) = umin*(1-b) + b*oldu(nd,t); %exponential to umin
         end
     end
 end
 end
-%would look swell in zip-like statement
+%would look swell in zip-like statement. ohwait, it's Matl~
 
 %% BIT BUCKET
