@@ -21,6 +21,7 @@
 % 2021-03-15 v.0.6.1 normalized pop sizes in objective function
 %      "     v.0.6.2 flags to (a) bound lambda (b) set term. cost to 0
 % 2021-03-16 v.1.0 done adding control update strategies
+%      "     v.1.1 fix the criterion for zero controls
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -203,9 +204,9 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     
     fprintf('\nJ = %E\n',J); %print the objective function
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
-    rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u > 0;
-    rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x > 0;
-    rerr_lax = delta*norm(lax,1) - norm(oldlax - lax,1); stop_lax = rerr_lax > 0;
+    rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u >= 0;
+    rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x >= 0;
+    rerr_lax = delta*norm(lax,1) - norm(oldlax - lax,1); stop_lax = rerr_lax >= 0;
     fprintf('rerr_u = %4.4f   rerr_x = %4.4f   rerr_lax = %4.4f\n',rerr_u,rerr_x,rerr_lax);
     
     %HUMAN-READABLE STOPPING CONDITIONS (relative error ||old_ - _|| / ||_|| < delta)
