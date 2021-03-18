@@ -22,6 +22,7 @@
 %      "     v.0.6.2 flags to (a) bound lambda (b) set term. cost to 0
 % 2021-03-16 v.1.0 done adding control update strategies
 %      "     v.1.1 fix the criterion for zero controls
+% 2021-03-18 v.1.1.1 add the transpose, made control 10 times cheaper
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -72,10 +73,10 @@ gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma (idem)
 
 
 %RUNNING COSTS      l for lockdown (control)
-c = 0.0200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
-l = 0.0450; %running cost of control; (q3=450, securing social interactions)
+c = 0.00200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
+l = 0.000450; %running cost of control; (q3=450, securing social interactions)
 %TERMINAL COST
-k = 0.2000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
+k = 0.02000; %terminal cost of infections; mean(k_1=1K, k_2=3K, k_3=1K)
 %FATIGUE RATES      (PI/PD-SF) 
 r1 = 0.002; %infection rates fatigue rate
 %r1 = 0; %infection rates fatigue rate
@@ -122,8 +123,9 @@ laxT = [lasT;lazT]; %costate is [\lambda_s; \lambda_z]
 
 % $pathTrav is just a matrix (floating point vals)
 Araw = load(pathTrav(inst)); 
+A = Araw'; %easier to add one transpose here than in every equation
 % set its diagonal to pops N, then divide row-wise by N (traveling fracs)
-A = diag(iN)* (Araw - diag(Araw) + diag(N));
+A = diag(iN)* (A - diag(A) + diag(N));
 %A = eye(n); %dumb debug: isolated nodes
 
 %% Sweep setup
@@ -199,7 +201,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %u = 0.5*(u1 + oldu); %gentle update of u (convex combination)
     u = 0.9*oldu + 0.1*u1; %a more gentle update of u (convex combination)
     %u = u1; %just forget the old stuff: feels bad
-    %bbupd1 = @(ct,u1,oldu) bbupd(0.9,umin,umax,ct,u1,oldu);
+    %bbupd1 = @(ct,u1,oldu) bbupd(0.99,umin,umax,ct,u1,oldu);
     %u = bbupd1(ct,u1,oldu);
     
     fprintf('\nJ = %E\n',J); %print the objective function
@@ -223,7 +225,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         xNull = x; laxNull = lax; JNull = J;
     end
     
-    if(ct > 300)
+    if(ct > 250)
         error("That probably wouldn't converge. Terminating.");
     end
 end %next sweep iteration
@@ -267,7 +269,11 @@ b = a^ct; %precompute the backoff value
 for t = 1:size(u,2)
     for nd = 1:size(u,1)
         if(u1(nd,t) > oldu(nd,t)) %increased since last loop
-            u(nd,t) = umax*(1-a) + a*oldu(nd,t); %additive to umax
+           u(nd,t) = umax*(1-a) + a*oldu(nd,t); %additive to umax
+           %u(nd,t) = umax*(1-b) + b*oldu(nd,t); %exponential to umax
+           %u(nd,t) = umax*(b) + (1-b)*oldu(nd,t); 
+           %u(nd,t) = oldu(nd,t);
+           %u(nd,t) = 0.999*oldu(nd,t) + 0.001*u1(nd,t);
         else
             u(nd,t) = umin*(1-b) + b*oldu(nd,t); %exponential to umin
         end
