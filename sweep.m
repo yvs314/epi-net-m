@@ -149,6 +149,7 @@ ct = 0; %set the loop counter
 
 opts = odeset('InitialStep',1); %ensure the 1st step is at most 1 day long
 %% Forward-Backward Sweep Loop
+tic
 while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     fprintf('Loop no. %d\n',ct); ct = ct+1;
     
@@ -159,42 +160,44 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %STATE
     ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
     disp('Run ode45 on IVP for state x---forwards from 0 to T')
-    tic
+    %tic
         x_sln = ode45(ftx1, [0 T], x(:,1),opts);
         x = deval(x_sln, 0:T );
-    toc 
+    %toc 
 
     %COSTATE
     gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
         , t, lax, beta, gamma, A, r1, c, NN);
     disp('Run ode45 on IVP for costate lax---backwards from T to 0');
-    tic
+   % tic
         lax_sln = ode45(gtx1, [T 0], lax(:,end), opts);
         lax = deval(lax_sln, 0:T);
         if(boundlax)
             lax = min(laxmax,max(lax,laxmin));
         %    pplax = spline(0:T,lax);
         end
-    toc
+   % toc
 
     %OBJECTIVE FUNCTION
     Lt1 = @(tArr) Ltxu(ppval(ppu,tArr),deval(x_sln,tArr),tArr,r1,r2,c,l,NN); %running cost
     disp('Compute the objective function J(u,x,T)');
-    tic 
+   % tic 
         if (~killPsi)
             PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
         else
             PsiT1 = 0; %no terminal cost, no transversality
         end
         J = PsiT1 + integral(Lt1,0,T); %the objective function
-    toc 
-    
+   % toc 
+   LZ1 = @(tArr) LZt(deval(x_sln,tArr),N);
+   ZZ = integral(LZ1,0,T); %cumulative infected
+   
     %CONTROL
     utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iNN);
     disp('Compute the optimal control at points 0..T');
-    tic; 
+ %   tic; 
         u1 = utxla1(0:T,x,lax); 
-    toc
+  %  toc
     
     %UPDATE THE CONTROL
     %pick the update that better improves J??? 'd require to keep 2 last
@@ -204,7 +207,8 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %bbupd1 = @(ct,u1,oldu) bbupd(0.99,umin,umax,ct,u1,oldu);
     %u = bbupd1(ct,u1,oldu);
     
-    fprintf('\nJ = %E\n',J); %print the objective function
+     %print the objective function and cumulative infected
+    fprintf('\nJ = %E   ZZ = %E\n',J,ZZ);
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
     rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u >= 0;
     rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x >= 0;
@@ -222,14 +226,17 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     
     %KEEP NULL-CONTROL solution
     if(ct == 1)
-        xNull = x; laxNull = lax; JNull = J;
+        xNull = x; laxNull = lax; JNull = J; ZZNull = ZZ;
     end
     
     if(ct > 250)
         error("That probably wouldn't converge. Terminating.");
     end
 end %next sweep iteration
+toc
+
 fprintf('\n J / JNull = %4.4f\n',J / JNull);
+fprintf('ZZNull = %d   ZZ = %d\n',ceil(ZZNull), ceil(ZZ));
 
 if(J / JNull > 1)
     error("Didn't improve over initial guess. Terminating.");
@@ -255,6 +262,9 @@ writetable(otabs,pathotabs(inst));
 writetable(otabs0,pathotabs0(inst));
 
 %% AUXILIARY FUNCTIONS
+heatmaplog=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn),'ColorScaling','log');
+heatmap1=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn));
+heatmap3 = @(u) heatmap(u,'GridVisible','off','Colormap',cool);
 
 %Hi, I'm the terminal cost in the objective J and I'm too small for a separate file
 function PsiT = PsiT(xT,T,r1,NN,k)
@@ -281,5 +291,7 @@ for t = 1:size(u,2)
 end
 end
 %would look swell in zip-like statement. ohwait, it's Matl~
+
+
 
 %% BIT BUCKET
