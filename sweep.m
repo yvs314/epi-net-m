@@ -23,6 +23,7 @@
 % 2021-03-16 v.1.0 done adding control update strategies
 %      "     v.1.1 fix the criterion for zero controls
 % 2021-03-18 v.1.1.1 add the transpose, made control 10 times cheaper
+% 2021-03-25 v.1.2 add ZZ: abs. infected at T and cZR: abs. Z + R (T)
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -189,9 +190,11 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         end
         J = PsiT1 + integral(Lt1,0,T); %the objective function
    % toc 
-   LZ1 = @(tArr) LZt(deval(x_sln,tArr),N);
-   ZZ = integral(LZ1,0,T); %cumulative infected
-   
+
+ %infected at day T + recovered at day T
+    cZR = sum(x(n+1:end,end) .* N) + sum(N - (x(1:n,end) + x(n+1:end,end) ) .* N);
+%just infected at day T
+    ZZ = sum(x(n+1:end,end) .* N);
     %CONTROL
     utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iNN);
     disp('Compute the optimal control at points 0..T');
@@ -208,7 +211,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %u = bbupd1(ct,u1,oldu);
     
      %print the objective function and cumulative infected
-    fprintf('\nJ = %E   ZZ = %E\n',J,ZZ);
+    fprintf('\nJ = %E   ZZ = %E  cZR = %E\n',J,ZZ,cZR);
     %STOPPING CONDITIONS (rel. err. \delta||_|| - ||old_ - _|| > 0)
     rerr_u = delta*norm(u,1) - norm(oldu - u,1); stop_u = rerr_u >= 0;
     rerr_x = delta*norm(x,1) - norm(oldx - x,1); stop_x = rerr_x >= 0;
@@ -226,7 +229,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     
     %KEEP NULL-CONTROL solution
     if(ct == 1)
-        xNull = x; laxNull = lax; JNull = J; ZZNull = ZZ;
+        xNull = x; laxNull = lax; JNull = J; ZZNull = ZZ; cZRNull = cZR;
     end
     
     if(ct > 250)
@@ -236,7 +239,8 @@ end %next sweep iteration
 toc
 
 fprintf('\n J / JNull = %4.4f\n',J / JNull);
-fprintf('ZZNull = %d   ZZ = %d\n',ceil(ZZNull), ceil(ZZ));
+fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
+    ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
 
 if(J / JNull > 1)
     error("Didn't improve over initial guess. Terminating.");
