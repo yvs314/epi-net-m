@@ -24,6 +24,7 @@
 %      "     v.1.1 fix the criterion for zero controls
 % 2021-03-18 v.1.1.1 add the transpose, made control 10 times cheaper
 % 2021-03-25 v.1.2 add ZZ: abs. infected at T and cZR: abs. Z + R (T)
+%            v.1.2.1 add norm-to-1-node output avgOut [z01; z11; avg_u]
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -56,6 +57,7 @@ pathotabs = @(iname) fullfile(otabDir,iname+"-abs.csv");
 pathotabs0 = @(iname) fullfile(otabDir,iname+"-abs0.csv"); %for the NULL control
 pathotfrac = @(iname) fullfile(otabDir,iname+"-frac.csv");
 pathotfrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL control
+pathotavg = @(iname) fullfile(otabDir,iname+"-avg.csv"); %all averaged
 %LOG FILE
 pathlog= @(iname) fullfile(otabDir,iname+".log");
 
@@ -237,20 +239,32 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     end
 end %next sweep iteration
 toc
-
+%% Evaluating the sweep results
 fprintf('\n J / JNull = %4.4f\n',J / JNull);
 fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
     ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
+
+
 
 if(J / JNull > 1)
     error("Didn't improve over initial guess. Terminating.");
 end
 
-%% Tabular output
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
 sNull = xNull(1:n,:); zNull = xNull(n+1:end,:); rNull = (1 - sNull - zNull);
 
+%normalize to 1-node model: sum all absolutes, and divide by pop
+A1 = @(c) sum( c .* N ); 
+a1 = @(c) A1(c) / sum(N);
+%make the absolutes
+%S = s .* N; Z = z.*N; R = r.*N; %multiply to get the absolute state
+%S01 = sum(sNull .* N); Z01 = sum(zNull .* N); R0 = sum(rNull .* N);
+s11 = a1(s); z11 = a1(z); r11 = a1(r); 
+s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
+avgOut = [z01; z11; sum(u) / n]; %[total zNull; total z; avg u]
+
+%% Tabular output
 cns = [arrayfun( @(n) 's'+string(n),0:T) ...
      arrayfun( @(n) 'z'+string(n),0:T) ...
      arrayfun( @(n) 'r'+string(n),0:T)];
@@ -264,6 +278,8 @@ writetable(otfrac,pathotfrac(inst));
 writetable(otfrac0,pathotfrac0(inst));
 writetable(otabs,pathotabs(inst));
 writetable(otabs0,pathotabs0(inst));
+
+writematrix(avgOut,pathotavg(inst));
 
 %% AUXILIARY FUNCTIONS
 heatmaplog=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn),'ColorScaling','log');
