@@ -25,6 +25,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-02-14   v.0.9.4: add partition-to-partition flight matrix
 '21-02-18   v.0.9.5: add partition-to-partition commute matrix
 '21-03-31   v.0.9.6: min,median,max for nonzero elements in talkDnsy
+            v.0.A: add by-AP agg with recomputation bypass in mkPsgMx()
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -49,7 +50,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.6"
+const callsign="This is Oboe v.0.A"
 #println(callsign)
 
 #=
@@ -180,6 +181,7 @@ function aggByAP(idf::DataFrame;make_names=true)
     if make_names && "Name" ∉ names(out)
         insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
     end
+    sort!(out,:IATA_Code) #ensure it's sorted by the name/IATA_Code
 end
 
 #=======WORKING===WITH===AIRPORTS====================#
@@ -245,15 +247,24 @@ input: DF must have [:ORG,:DST,:PSG] cols
 function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
     #make a sorted list of ALL the APs in `fs`
     allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
-    #delegate to the method with EXPLICIT ground set (`iretAPs`)
-    return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to)
+    #delegate to the method with EXPLICIT ground set (`iretAPs`); with retaintours = true
+    return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to,retaintours=true)
 end
 
 #takes *explicit* list of vertices `iretAPs`
-function mkFlightMx2(fs::DataFrame, iretAPs::Array{String}; daily=true::Bool,babble=true::Bool, init_to=0.0::Number)
+function mkFlightMx2(fs::DataFrame, iretAPs::Array{String}; 
+    daily=true::Bool # divide by 365, the input was annualized
+    ,retaintours = false::Bool #flights with ORG==DST not retained by default
+    ,babble=true::Bool, init_to=0.0::Number)
+    
     retAPs = sort(iretAPs) #ensure AP codes are sorted, for indexing porposes
+    pret = a -> a.ORG ∈ retAPs && a.DST ∈ retAPs
+    if !retaintours
+        pret = a -> a.ORG ≠ a.DST &&   a.ORG ∈ retAPs && a.DST ∈ retAPs
+    end
+    #pretain(a)  ? (retaintours) : ()
     #retain only flights (tuples :ORG,:DST,PSG) for APs ∈ retAPs; 
-    retFlows = filter(a -> a.ORG ∈ retAPs && a.DST ∈ retAPs, eachrow(fs)) |> DataFrame
+    retFlows = filter(pret, eachrow(fs)) |> DataFrame
     
     if babble #report if there were *any* isolated APs
         isolatedAPs = filter( a -> a ∉ retFlows.ORG && a ∉ retFlows.DST, retAPs)
@@ -268,6 +279,7 @@ function mkFlightMx2(fs::DataFrame, iretAPs::Array{String}; daily=true::Bool,bab
     for row ∈ eachrow(retFlows)
         M_[ix_[row.ORG],ix_[row.DST]] = row.PSG  
     end
+
 
     outM = daily ? map(x -> x/365,M_) : M_ #annual-to-daily, if requested
     return (M=outM, ix = ix_, xi = xi_,apCodes = retAPs)
@@ -428,18 +440,23 @@ end
 NB! now a method for partition-to-partition flights
 `ns` MUST have [:IATA_Code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
 =#
-function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict)
-    retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
+function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
+    retAPs = ns.IATA_Code |> unique |> sort #the APs that are designated for at least one `node`
     aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  #get the daily AP-to-AP flows for the designated APs
     dim = nrow(pns) #final output matrix is [dim × dim], for nodes in `pns`
     outM = fill(0.0, (dim,dim))
-#proceed column-wise
-    for pto ∈ 1:dim, pfrom ∈ 1:dim
-        if pfrom == pto
-            outM[pfrom,pto]=0.0 #no reflexive air travel
-        else #sum the travel between consituents
-            outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps)
-                    for efrom ∈ prt[pns.Name[pfrom]], eto ∈ prt[pns.Name[pto]])
+    if(retAPs == pns.IATA_Code && !force_recompute)
+        println("By-AP aggregation engaged. Using AP-to-AP travel matrix directly.")
+        outM = aps.M #the diagonal is zero by definition of mkFlightMx2()
+    else
+    #proceed column-wise
+        for pto ∈ 1:dim, pfrom ∈ 1:dim
+            if pfrom == pto
+                outM[pfrom,pto]=0.0 #no reflexive air travel
+            else #sum the travel between consituents
+                outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps)
+                        for efrom ∈ prt[pns.Name[pfrom]], eto ∈ prt[pns.Name[pto]])
+            end
         end
     end
     return outM
@@ -672,6 +689,9 @@ end #end module Oboe
 
 #========BIT=====BUCKET===========#
 
+#collect non-equal (in view of eps) elements of 2 matrices, with their indices too
+#[ (i,j,Apap[i,j] => wat.M[i,j]) for i ∈ 1:size(Apap,1) for j ∈ 1:size(Apap,1) 
+#                                               if (Apap[i,j] ≉ wat.M[i,j])]
 
 #-----MAIN---CODE------------#
 # #this piece is to be integrated through oboe-main.jl
