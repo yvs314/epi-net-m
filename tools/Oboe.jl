@@ -24,6 +24,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-02-14   v.0.9.3: add node partitioning, streamline mkFlightMx2() and mkPsgMx2() with aux
 '21-02-14   v.0.9.4: add partition-to-partition flight matrix
 '21-02-18   v.0.9.5: add partition-to-partition commute matrix
+'21-03-31   v.0.9.6: min,median,max for nonzero elements in talkDnsy
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -42,6 +43,8 @@ using DataFrames
 using Statistics
 #for `haversine` formula of distance between two points on a big circle
 using Distances
+#for `diag` in `talkDnsy`
+#using LinearAlgebra
 
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
@@ -628,16 +631,22 @@ are useful enough to be pulled from disparate notebooks
 Might leave them babbling out of stdout/stderr though
 =#
 
-#input: a square matrix of numbers; might add type-checking later
+#median of greater-than-zero elements (for the sparse stuff)
+mmed(M) = filter(x -> x>0,M[1:end]) |> median
+#=input: a square matrix of numbers; might add type-checking later
+output: density, with a warning if nonzero found on diagonal
+=#
 function talkDnsy(M)
-    #no. ≠0 entries
-    a=filter(x -> x> 0.0, M) |> length
     dim = size(M,1)
-    b = dim*(dim-1) #max no. ≠0 connections
-    dnsy = a/b
+    if ! (filter(x -> x > 0.0, diag(M)) |> isempty)
+        println(stderr,"Warning: nonzero diagonal elements found.")
+    end 
+    #nonzero entries
+    nzs = filter(x -> x > 0.0, M); a= nzs |> length;
+    dnsy = a/ dim^2; b = dim*(dim-1) #b is max no. nonzero elements (all 'cept diag)
     println("We've got ",a," ≠0 connections")
     println("With at most ",b, " ≠0 entries, we get the density ",dnsy)
-    #print("The density is ",filter(x -> x> 0.0, M) |> le )
+    print("min ", nzs |> minimum, "   median ", nzs |> median, "   max ", nzs |> maximum)
     return(nnonzero = a, maxnonzero= b, density = dnsy, dim = size(M,1))
 end
 
