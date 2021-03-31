@@ -49,7 +49,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.9.5"
+const callsign="This is Oboe v.0.9.6"
 #println(callsign)
 
 #=
@@ -164,6 +164,18 @@ Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
 function aggByCty(idf=rdFluteTract()::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste,:Cty]) #group by U.S. County FIPS, within the same State FIPS 
+    out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
+    if make_names && "Name" ∉ names(out)
+        insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
+    end
+end
+
+#= by-AP (:IATA_Code) PRE-aggregation,
+with dumb Euclidean centroid for geographical coordinates
+Input: a FluTE $name-tracts.dat WITH dsg AP, a la [:Name,:IATA_Code,:Pop,:LAT,:LNG]
+=#
+function aggByAP(idf::DataFrame;make_names=true)
+    gd = groupby(idf,[:IATA_Code]) #group by the tract's dsg AP :IATA_Code 
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
     if make_names && "Name" ∉ names(out)
         insertcols!(out, :Name => map( select_mkName(names(out)), eachrow(out)))
@@ -414,7 +426,7 @@ end
 
 #=
 NB! now a method for partition-to-partition flights
-`ns` MUST have [:IATA_code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+`ns` MUST have [:IATA_Code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
 =#
 function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict)
     retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
@@ -451,10 +463,15 @@ function partByCty(ns::DataFrame,pns::DataFrame)
                         1:nrow(ns)) for x ∈ pns.Name)
 end
 
-#cruel: makes states unique
+#consider a unified approach to partBySte and partByAP;
 function partBySte(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
 end
+
+function partByAP(ns::DataFrame,pns::DataFrame)
+    Dict(x => filter(ri -> ns.IATA_Code[ri]==x, 1:nrow(ns)) for x ∈ pns.IATA_Code |> unique)
+end
+
 
 #part:: Name1 => [ns_row_indices],
 #out:: ns_row_index => Name1 
