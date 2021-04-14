@@ -451,11 +451,10 @@ function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
     else
     #proceed column-wise
         for pto ∈ 1:dim, pfrom ∈ 1:dim
-            if pfrom == pto
-                outM[pfrom,pto]=0.0 #no reflexive air travel
-            else #sum the travel between consituents
-                outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps)
-                        for efrom ∈ prt[pns.Name[pfrom]], eto ∈ prt[pns.Name[pto]])
+            if pfrom ≠ pto #no reflexive air travel (reflexive defaults to 0.0 by initialization)
+                outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps) #sum the travel between consituents
+                    for eto ∈ prt[pns.Name[pto]], 
+                        efrom ∈ prt[pns.Name[pfrom]] )
             end
         end
     end
@@ -468,7 +467,8 @@ end
 #ns MUST have [:shr,:IATA_Code]
 function psg(from::Integer,to::Integer,ns::DataFrame,APs)
     if ns.IATA_Code[from] ≠ ns.IATA_Code[to]
-        return ns.shr[from] * ns.shr[to] * APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]]
+        return ns.shr[from] * ns.shr[to] * 
+            APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]] 
     else return 0.0
     end
 end

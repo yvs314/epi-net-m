@@ -65,6 +65,7 @@ pathlog= @(iname) fullfile(otabDir,iname+".log");
 % these follow (El Ouardighi, Khmelnitsky, Sethi, 2020)
 
 %INFECTION and RECOVERY RATES
+%(Rader, Scarpino, Nande, &al., 2020): alpha = 0.15, gamma = 0.1
 %baseline R_0=2.74; beta/gamma 63%
 %set to harmonic mean of \alpha and \beta from idem
 beta = 0.1196; % 1/(1/ 0.2977 + 1/0.2); %infection rate; (idem)

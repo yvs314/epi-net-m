@@ -46,17 +46,17 @@ fipsNW=["41","53"]
 
 cmt = Oboe.rdTidyWfsByFIPS(fipsNW)
 cmt |> myshow
-# bycty = Oboe.aggByCty(ns2)
+bycty = Oboe.aggByCty(ns2)
 # bycty |> myshow
-# byap = Oboe.aggByAP(ns2)
-# byste = Oboe.aggBySte(ns2)
+byap = Oboe.aggByAP(ns2)
+byste = Oboe.aggBySte(ns2)
 # byste |> show
-# pNWs = Oboe.partBySte(ns2,byste)
-# pNWap = Oboe.partByAP(ns2,byap)
-# pNWc = Oboe.partByCty(ns2,bycty)
+@time pNWs = Oboe.partBySte(ns2,byste)
+@time pNWap = Oboe.partByAP(ns2,byap)
+@time pNWc = Oboe.partByCty(ns2,bycty)
 
 
-# Act = Oboe.mkCmtMx(ns2,cmt)
+@time Act = Oboe.mkCmtMx(ns2,cmt)
 # Acc = Oboe.mkCmtMx(ns2,bycty,pNWc,cmt)
 # Acap= Oboe.mkCmtMx(ns2,byap,pNWap,cmt)
 # Acs = Oboe.mkCmtMx(ns2,byste,pNWs,cmt)
