@@ -445,7 +445,9 @@ function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
     aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  #get the daily AP-to-AP flows for the designated APs
     dim = nrow(pns) #final output matrix is [dim × dim], for nodes in `pns`
     outM = fill(0.0, (dim,dim))
-    if(retAPs == pns.IATA_Code && !force_recompute)
+    if("IATA_Code" ∈ (pns |> names) && #detect by-AP aggregation
+        !force_recompute && #explicit request not to recompute the matrix
+        retAPs == pns.IATA_Code) #ensure by-AP aggregation was correct for `ns`
         println("By-AP aggregation engaged. Using AP-to-AP travel matrix directly.")
         outM = aps.M #the diagonal is zero by definition of mkFlightMx2()
     else
