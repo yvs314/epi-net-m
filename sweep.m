@@ -29,6 +29,8 @@
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
 % 2 switch to tArr instead of “magical numbers” 0:T / T:0 / [0 T]
+% 3 set asserts(condition,"error message") instead of comment caveats
+% 4 consider classes and objects
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup

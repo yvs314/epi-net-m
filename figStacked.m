@@ -1,10 +1,10 @@
 %% aux: Draw Stacked I+S+R for 1 city
-% take a node's s_i(t), i_i(t), and r_i(t) series and output a stacked plot
+% take a node's s_i(t), z_i(t), and r_i(t) series and output a stacked plot
 % i_i(t) is the *first* series, to keep its shape intact
 % OPT: nodeTag is optional, omit to suppress the title 
-function [outFig] = figStacked(X_ts, s_in, i_in, r_in,nodeTag)   
+function [outFig] = figStacked(X_ts, s_in, z_in, r_in,nodeTag)   
     
-    outFig = area(X_ts,[i_in; s_in; r_in]');
+    outFig = area(X_ts,[z_in; s_in; r_in]');
  
     %set the colors
     outFig(1).FaceColor=[0.85 0.325 0.098];%Infected are reddish
