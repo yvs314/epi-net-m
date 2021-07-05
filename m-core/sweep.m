@@ -35,12 +35,12 @@
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
 %./data/by-tract is for problem instances (IVs + travel matrix)
-instDir="data/by-tract";
-ofigDir = "fig"; %write the output figures and tables here
+instDir="../data/by-tract";
+ofigDir = "../fig"; %write the output figures and tables here
 if(~exist(ofigDir,"dir"))
     mkdir(ofigDir); %make sure it exists
 end
-otabDir = "out"; %write the output figures and tables here
+otabDir = "../out"; %write the output figures and tables here
 if(~exist(otabDir,"dir"))
     mkdir(otabDir); %make sure it exists
 end

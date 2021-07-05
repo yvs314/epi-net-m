@@ -1,5 +1,5 @@
 %% Networked SIR simulator
-%
+% 2020 version: no control, Euler method, and Kronecker prod notation
 % Authorship:  Yaroslav Salii, Shuang Gao, and Rinel Foguen
 % 
 % Plotting facilities: 
@@ -26,7 +26,7 @@ clc ; clear all; close all;
 %% Set/Read the System Parameters
 
 %set the instance location
-instDir="data/by-tract"; %by-tract are FluTE-derived instances with air travel and commute
+instDir="../data/by-tract"; %by-tract are FluTE-derived instances with air travel and commute
 
 
 %initial values instances have the form $instName-init.csv
@@ -69,7 +69,7 @@ iValPath=fullfile(instDir,instName+fnSep+IV_suff); %path to the IVs
 iFlugPath=fullfile(instDir,instName+fnSep+trav_suff); %path to the flight data, if any
 
 %% Set the IO parameters: output location and naming
-outDir = "out"; %write the output figures and tables here
+outDir = "../out"; %write the output figures and tables here
 if(~exist(outDir,"dir"))
     mkdir(outDir); %make sure it exists
 end
