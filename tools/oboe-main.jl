@@ -13,6 +13,7 @@ oboe-main.jl
 2020-12-10  v.0.0 A Hello, World!
 2021-02-02  v.0.1 Just the AP-AP to node-node processing
 2021-02-19  v.0.5 Full processing, commented out; still no IO
+2021-07-08  v.0.6 Implemented IO via CLI arguments
 """
 
 #The FIPS codes for each of the contiguous US states (and DC)
@@ -40,17 +41,17 @@ s = ArgParseSettings()
     "--fips"
         nargs = '+'
         help = "FIPS codes for the states that need to be processed, or ALL for all of contiguous US"
-        arg_type = AbstractString
+        arg_type = String
         required = true
     "--agg"
         nargs = 1
         help = "Aggregation method {tra|cty|ap|ste}"
-        arg_type = Symbol
+        arg_type = String
         required = true
     "--name"
         nargs = 1
-        help = "A name to be used for the output. Must not contain numbers"
-        arg_type = AbstractString
+        help = "The name of the dataset to be used, must not contain numbers"
+        arg_type = String
         required = true
 end
 
@@ -63,7 +64,7 @@ if fips[1] == "ALL" && length(fips) == 1
 end
 #Get the aggregation mode and make sure it is one of the correct ones
 agg = parsed_args["agg"][1]
-if agg ∉ [:tra, :cty, :ap, :ste]
+if agg ∉ ["tra", "cty", "ap", "ste"]
     throw(DomainError(agg, "The argument for agg must be {tra|cty|ap|ste}"))
 end
 #Finally, get the name, making sure it is upper case and has no numbers
@@ -75,51 +76,61 @@ for ch in name
 end
 
 
-iFluteFile="a~NW" * Oboe.fn.sep * Oboe.fn.fltInitSuff 
+iFluteFile="a~" * name * Oboe.fn.sep * Oboe.fn.fltInitSuff 
 #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
 pBTS = Oboe.grpBTS() 
 #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
-APs = Oboe.censorAggFlows() # 
-#read the Northwest (OR,WA) census tracts
-nsRaw= Oboe.rdFluteTract(iFluteFile)
+APs = Oboe.censorAggFlows()
+#read the census tracts corresponding to the name provided in the args
+nsRaw= Oboe.rdFluteTract(iFluteFile) 
 nsRaw |> myshow
 #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
-ns = Oboe.assignDsgAPs(nsRaw,APs) 
+ns = Oboe.assignDsgAPs(nsRaw,APs)
 #now find the :Pop of each APs' catchment area, and chuck that into a `Dict`
 d = Oboe.mkAP_pop_dict(ns) 
 #go on, compute the nodes' passenger shares (add the :shr col), with `d` in mind
 ns2 = Oboe.assignPsgShares(ns,d)
 ns2 |> myshow
 
-fipsNW=["41","53"]
-
-cmt = Oboe.rdTidyWfsByFIPS(fipsNW)
+cmt = Oboe.rdTidyWfsByFIPS(fips)
 cmt |> myshow
-bycty = Oboe.aggByCty(ns2)
-# bycty |> myshow
-byap = Oboe.aggByAP(ns2)
-byste = Oboe.aggBySte(ns2)
-# byste |> show
-@time pNWs = Oboe.partBySte(ns2,byste)
-@time pNWap = Oboe.partByAP(ns2,byap)
-@time pNWc = Oboe.partByCty(ns2,bycty)
 
+#do the processing, aggregating by tract/state/county/ap as selected in the args
+cmtMx = nothing
+psgMx = nothing
+iv = nothing
 
-@time Act = Oboe.mkCmtMx(ns2,cmt)
-# Acc = Oboe.mkCmtMx(ns2,bycty,pNWc,cmt)
-# Acap= Oboe.mkCmtMx(ns2,byap,pNWap,cmt)
-# Acs = Oboe.mkCmtMx(ns2,byste,pNWs,cmt)
+if agg == "tra"
+    @time global cmtMx = Oboe.mkCmtMx(ns2,cmt)
+    global psgMx = Oboe.mkPsgMx(ns2)
+    global iv = Oboe.ns2iv(ns2)
 
-# Apt = Oboe.mkPsgMx(ns2)
-# Apc = Oboe.mkPsgMx(ns2,bycty,pNWc)
-# Apap = Oboe.mkPsgMx(ns2,byap,pNWap)
-# Aps = Oboe.mkPsgMx(ns2,byste, pNWs)
+elseif agg == "cty"
+    bycty = Oboe.aggByCty(ns2)
+    # bycty |> myshow
+    @time partCty = Oboe.partByCty(ns2,bycty)
+    
+    global cmtMx = Oboe.mkCmtMx(ns2,bycty,partCty,cmt)
+    global psgMx = Oboe.mkPsgMx(ns2,bycty,partCty)
+    global iv = Oboe.ns2iv(bycty)
 
-# inames = ["a~NW~tra","a~NW~cty","a~NW~ste"]
-# inames |> println
-# ivs=map(Oboe.ns2iv,[ns2,bycty,byste])
-# trvs=[Apt + Act, Apc + Acc, Aps + Acs]
+elseif agg == "ap"
+    byap = Oboe.aggByAP(ns2)
+    @time partAp = Oboe.partByAP(ns2,byap)
+    global cmtMx = Oboe.mkCmtMx(ns2,byap,partAp,cmt)
+    global psgMx = Oboe.mkPsgMx(ns2,byap,partAp)
+    global iv = Oboe.ns2iv(byap)
 
-# for n in 1:3
-#     Oboe.writeMe(inames[n],ivs[n],trvs[n])
-# end
+elseif agg == "ste"
+    byste = Oboe.aggBySte(ns2)
+    # byste |> show
+    @time partSte = Oboe.partBySte(ns2,byste)
+    global cmtMx = Oboe.mkCmtMx(ns2,byste,partSte,cmt)
+    global psgMx = Oboe.mkPsgMx(ns2,byste, partSte)
+    global iv = Oboe.ns2iv(byste)
+end
+
+iname = name * agg
+iname |> println
+
+Oboe.writeMe(iname,iv,psgMx + cmtMx)
