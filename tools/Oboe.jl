@@ -535,7 +535,7 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     to_keep(r) = r[4] ∈ fipss && r[3]≠r[6]
     #TIDY: retain only the commute between states in `fipss`; this chucks the REFLEXIVE commute
     wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
-    wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3 #add them all together
+    wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3[1] #add them all together
     #combine the State,County,Tract triples into single columns
     insertcols!(wfs4, 1, 
         :ORG => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
