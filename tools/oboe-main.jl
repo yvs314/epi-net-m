@@ -58,39 +58,25 @@ function processOboe(name, agg; fips=fipsAll, useNW=false)
     cmt |> myshow
 
     #do the processing, aggregating by tract/state/county/ap as selected in the args
-    cmtMx = nothing
-    psgMx = nothing
-    iv = nothing
-
+    skipagg = false #this will be true if by-tract aggregation is requested
+                    #and thus no additional steps are needed
     if agg == "tra"
-        @time cmtMx = Oboe.mkCmtMx(ns2,cmt)
-        psgMx = Oboe.mkPsgMx(ns2)
-        iv = Oboe.ns2iv(ns2)
-
+        skipagg = true
     elseif agg == "cty"
-        bycty = Oboe.aggByCty(ns2)
-        # bycty |> myshow
-        @time partCty = Oboe.partByCty(ns2,bycty)
-        
-        cmtMx = Oboe.mkCmtMx(ns2,bycty,partCty,cmt)
-        psgMx = Oboe.mkPsgMx(ns2,bycty,partCty)
-        iv = Oboe.ns2iv(bycty)
-
+        aggregated = Oboe.aggByCty(ns2)
+        partitioned = Oboe.partByCty(ns2, aggregated)
     elseif agg == "ap"
-        byap = Oboe.aggByAP(ns2)
-        @time partAp = Oboe.partByAP(ns2,byap)
-        cmtMx = Oboe.mkCmtMx(ns2,byap,partAp,cmt)
-        psgMx = Oboe.mkPsgMx(ns2,byap,partAp)
-        iv = Oboe.ns2iv(byap)
-
+        aggregated = Oboe.aggByAP(ns2)
+        partitioned = Oboe.partByAP(ns2, aggregated)
     elseif agg == "ste"
-        byste = Oboe.aggBySte(ns2)
-        # byste |> show
-        @time partSte = Oboe.partBySte(ns2,byste)
-        global cmtMx = Oboe.mkCmtMx(ns2,byste,partSte,cmt)
-        global psgMx = Oboe.mkPsgMx(ns2,byste, partSte)
-        global iv = Oboe.ns2iv(byste)
+        aggregated = Oboe.aggBySte(ns2)
+        partitioned = Oboe.partBySte(ns2, aggregated)
     end
+
+    cmtMx = skipagg ? Oboe.mkCmtMx(ns2, cmt) : Oboe.mkCmtMx(ns2, aggregated, partitioned, cmt)
+    psgMx = skipagg ? Oboe.mkPsgMx(ns2)      : Oboe.mkPsgMx(ns2, aggregated, partitioned)
+    iv    = skipagg ? Oboe.ns2iv(ns2)        : Oboe.ns2iv(aggregated)
+
 
     iname = name * agg
     iname |> println
