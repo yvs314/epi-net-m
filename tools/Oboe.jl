@@ -105,10 +105,6 @@ function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
 
-
-
-
-
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames 
 Default to NW tracts (Oregon + Washington)
@@ -128,6 +124,13 @@ function rdWholeUS(ins::NamingSpec=fn)
     ifName = filter(s -> split(s,"-")[1]=="usa",lsTracts(ins) )[1]
     rdFluteTract(ifName,ins)
 end
+
+# given a DataFrame of tracts, remove those that aren't from the given states
+function censorFluteTractByFIPS(tracts::DataFrame, fips::Vector{String})
+    filter(row -> row.Ste ∈ fips, tracts)
+end
+
+
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
 

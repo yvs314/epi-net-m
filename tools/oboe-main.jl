@@ -36,16 +36,19 @@ println(Oboe.callsign)
 myshow = obj -> println(first(obj,5))
 
 function processOboe(name, agg; fips=fipsAll, useNW=false)
-    #TODO: Modify this line so that a~NW is only used when useNW is true, 
-    #      and otherwise censorFluteTractByFIPS is called
-    iFluteFile="a~" * name * Oboe.fn.sep * Oboe.fn.fltInitSuff 
+    if useNW
+        iFluteFile="a~NW" * Oboe.fn.sep * Oboe.fn.fltInitSuff
+        #read the census tracts corresponding to the name provided in the args
+        nsRaw = Oboe.rdFluteTract(iFluteFile) 
+    else
+        wholeUS = Oboe.rdWholeUS()
+        nsRaw = Oboe.censorFluteTractByFIPS(wholeUS, fips)
+    end
+    nsRaw |> myshow
     #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
     pBTS = Oboe.grpBTS() 
     #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
     APs = Oboe.censorAggFlows()
-    #read the census tracts corresponding to the name provided in the args
-    nsRaw= Oboe.rdFluteTract(iFluteFile) 
-    nsRaw |> myshow
     #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
     ns = Oboe.assignDsgAPs(nsRaw,APs)
     #now find the :Pop of each APs' catchment area, and chuck that into a `Dict`
