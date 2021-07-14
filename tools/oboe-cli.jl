@@ -34,6 +34,9 @@ s = ArgParseSettings()
         help = "The name of the dataset to be used, must not contain numbers"
         arg_type = String
         required = true
+    "--force"
+        action = :store_true
+        help = "A flag to allow overwriting existing output files"
 end
 
 function validate_args(agg, name)
@@ -62,15 +65,14 @@ end
 #Get the aggregation mode and the filename
 agg = parsed_args["agg"][1]
 name = uppercase(parsed_args["name"][1])
+force = parsed_args["force"]
 
 validate_args(agg, name)
 
 #perform the data processing routine using the given args
 
 if useall
-    OboeMain.processOboe(name, agg)
-elseif useNW
-    OboeMain.processOboe(name, agg, fips=fips, useNW=true)
+    OboeMain.processOboe(name, agg, force=force)
 else
-    OboeMain.processOboe(name, agg, fips=fips)
+    OboeMain.processOboe(name, agg, fips=fips, useNW=useNW, force=force)
 end

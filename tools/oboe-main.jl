@@ -35,7 +35,13 @@ println(Oboe.callsign)
 #lame logging thing
 myshow = obj -> println(first(obj,5))
 
-function processOboe(name, agg; fips=fipsAll, useNW=false)
+function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
+    #construct the output file name and make sure the files don't already exist
+    iname = name * agg
+    if !force && Oboe.checkIfFilesExist(iname)
+        error("Output data for $iname already exists, use the force flag to overwrite")
+    end
+
     if useNW
         iFluteFile="a~NW" * Oboe.fn.sep * Oboe.fn.fltInitSuff
         #read the census tracts corresponding to the name provided in the args
@@ -78,12 +84,11 @@ function processOboe(name, agg; fips=fipsAll, useNW=false)
 
     @time cmtMx = skipagg ? Oboe.mkCmtMx(ns2, cmt) : Oboe.mkCmtMx(ns2, aggregated, partitioned, cmt)
     @time psgMx = skipagg ? Oboe.mkPsgMx(ns2)      : Oboe.mkPsgMx(ns2, aggregated, partitioned)
-    iv    = skipagg ? Oboe.ns2iv(ns2)              : Oboe.ns2iv(aggregated)
+    iv          = skipagg ? Oboe.ns2iv(ns2)        : Oboe.ns2iv(aggregated)
 
 
-    iname = name * agg
+    
     iname |> println
-
     Oboe.writeMe(iname,iv,psgMx + cmtMx)
 end
 

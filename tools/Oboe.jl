@@ -37,6 +37,7 @@ module Oboe
 
 
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
+using Base: func_for_method_checked
 using CSV,DelimitedFiles
 #transforming the data in tabular form;
 using DataFrames
@@ -79,7 +80,14 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
-function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir="../data/by-tract")
+const outputdir = "../data/by-tract"
+
+function checkIfFilesExist(iname::String; ofdir=outputdir)
+    dir = readdir(ofdir)
+    any(filename -> startswith(filename, iname), dir)
+end
+
+function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir=outputdir)
     ofivs= join([iname,nrow(ivs)],"_") * "-init.csv"
     oftrv= join([iname,nrow(ivs)],"_") * "-trav.dat"
     CSV.write(joinpath(ofdir,ofivs),ivs)
