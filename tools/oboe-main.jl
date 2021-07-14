@@ -14,6 +14,8 @@ oboe-main.jl
 2021-02-19  v.0.5 Full processing, commented out; still no IO
 2021-07-08  v.0.6 Implemented IO via CLI arguments
 2021-07-12  v.0.7 Moved CLI parsing to a separate file
+2021-04-14  v.0.8 Added support for tract datasets other than NW and checking 
+                  if the output already exists
 """
 
 module OboeMain

@@ -8,6 +8,7 @@ Run me by typing `include("oboe-main.jl").processOboe(...)` at the julia REPL
 
 oboe-cli.jl
 2020-12-10  v.0.0 Initial version
+2020-12-14  v.0.1 Added support for --force
 """
 
 using ArgParse

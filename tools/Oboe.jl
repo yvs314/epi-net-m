@@ -26,6 +26,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-02-18   v.0.9.5: add partition-to-partition commute matrix
 '21-03-31   v.0.9.6: min,median,max for nonzero elements in talkDnsy
             v.0.A: add by-AP agg with recomputation bypass in mkPsgMx()
+'21-07-14   v.0.A.1: add checkIfFilesExist and censorFluteTractByFIPS
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -51,7 +52,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.A"
+const callsign="This is Oboe v.0.A.1"
 #println(callsign)
 
 #=
