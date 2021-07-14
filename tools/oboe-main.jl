@@ -64,18 +64,18 @@ function processOboe(name, agg; fips=fipsAll, useNW=false)
         skipagg = true
     elseif agg == "cty"
         aggregated = Oboe.aggByCty(ns2)
-        partitioned = Oboe.partByCty(ns2, aggregated)
+        @time partitioned = Oboe.partByCty(ns2, aggregated)
     elseif agg == "ap"
         aggregated = Oboe.aggByAP(ns2)
-        partitioned = Oboe.partByAP(ns2, aggregated)
+        @time partitioned = Oboe.partByAP(ns2, aggregated)
     elseif agg == "ste"
         aggregated = Oboe.aggBySte(ns2)
-        partitioned = Oboe.partBySte(ns2, aggregated)
+        @time partitioned = Oboe.partBySte(ns2, aggregated)
     end
 
-    cmtMx = skipagg ? Oboe.mkCmtMx(ns2, cmt) : Oboe.mkCmtMx(ns2, aggregated, partitioned, cmt)
-    psgMx = skipagg ? Oboe.mkPsgMx(ns2)      : Oboe.mkPsgMx(ns2, aggregated, partitioned)
-    iv    = skipagg ? Oboe.ns2iv(ns2)        : Oboe.ns2iv(aggregated)
+    @time cmtMx = skipagg ? Oboe.mkCmtMx(ns2, cmt) : Oboe.mkCmtMx(ns2, aggregated, partitioned, cmt)
+    @time psgMx = skipagg ? Oboe.mkPsgMx(ns2)      : Oboe.mkPsgMx(ns2, aggregated, partitioned)
+    iv    = skipagg ? Oboe.ns2iv(ns2)              : Oboe.ns2iv(aggregated)
 
 
     iname = name * agg
