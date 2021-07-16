@@ -7,8 +7,9 @@ the CLI arguments and passing them to oboe-main.jl where the actual processing h
 Run me by typing `include("oboe-main.jl").processOboe(...)` at the julia REPL
 
 oboe-cli.jl
-2020-12-10  v.0.0 Initial version
-2020-12-14  v.0.1 Added support for --force
+?2020-12-10  v.0.0 Initial version
+?2020-12-14  v.0.1 Added support for --force
+2021-07-15  v.0.1.1 YS: clarify help and validation error text
 """
 
 using ArgParse
@@ -27,25 +28,25 @@ s = ArgParseSettings()
         required = true
     "--agg"
         nargs = 1
-        help = "Aggregation method {tra|cty|ap|ste}"
+        help = "Pick aggregation type {tra|cty|ap|ste}"
         arg_type = String
         required = true
     "--name"
         nargs = 1
-        help = "The name of the dataset to be used, must not contain numbers"
+        help = "Output file names prefix, UPPERCASE. No hyphens - or underscores _"
         arg_type = String
         required = true
     "--force"
         action = :store_true
-        help = "A flag to allow overwriting existing output files"
+        help = "Overwrite existing output files"
 end
 
 function validate_args(agg, name)
     if agg ∉ ["tra", "cty", "ap", "ste"]
-        throw(DomainError(agg, "The argument for agg must be {tra|cty|ap|ste}"))
+        throw(DomainError(agg, "Unknown aggregation type. Choose {tra|cty|ap|ste}"))
     end
-    if any(ch -> '0' <= ch <= '9', name)
-        throw(DomainError(name, "The name must not contain numbers"))
+    if any(char -> char ∈ ['-','_'], name)
+        throw(DomainError(name, "Found a hyphen - or underscore _ in output prefix. These are not allowed"))
     end
 end
 
