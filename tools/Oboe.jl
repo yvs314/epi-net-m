@@ -26,6 +26,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-02-18   v.0.9.5: add partition-to-partition commute matrix
 '21-03-31   v.0.9.6: min,median,max for nonzero elements in talkDnsy
             v.0.A: add by-AP agg with recomputation bypass in mkPsgMx()
+'21-07-14   v.0.A.1: add checkIfFilesExist and censorFluteTractByFIPS
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -37,6 +38,7 @@ module Oboe
 
 
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
+using Base: func_for_method_checked
 using CSV,DelimitedFiles
 #transforming the data in tabular form;
 using DataFrames
@@ -50,7 +52,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.A"
+const callsign="This is Oboe v.0.A.1"
 #println(callsign)
 
 #=
@@ -79,7 +81,14 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
-function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir="../data/by-tract")
+const outputdir = "../data/by-tract"
+
+function checkIfFilesExist(iname::String; ofdir=outputdir)
+    dir = readdir(ofdir)
+    any(filename -> startswith(filename, iname), dir)
+end
+
+function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir=outputdir)
     ofivs= join([iname,nrow(ivs)],"_") * "-init.csv"
     oftrv= join([iname,nrow(ivs)],"_") * "-trav.dat"
     CSV.write(joinpath(ofdir,ofivs),ivs)
@@ -105,10 +114,6 @@ function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
 
-
-
-
-
 #= load a FluTE census tract info into a DataFrame,
 setting the types and colnames 
 Default to NW tracts (Oregon + Washington)
@@ -128,6 +133,13 @@ function rdWholeUS(ins::NamingSpec=fn)
     ifName = filter(s -> split(s,"-")[1]=="usa",lsTracts(ins) )[1]
     rdFluteTract(ifName,ins)
 end
+
+# given a DataFrame of tracts, remove those that aren't from the given states
+function censorFluteTractByFIPS(tracts::DataFrame, fips::Vector{String})
+    filter(row -> row.Ste ∈ fips, tracts)
+end
+
+
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
 
@@ -535,7 +547,7 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
     to_keep(r) = r[4] ∈ fipss && r[3]≠r[6]
     #TIDY: retain only the commute between states in `fipss`; this chucks the REFLEXIVE commute
     wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
-    wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3 #add them all together
+    wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3[1] #add them all together
     #combine the State,County,Tract triples into single columns
     insertcols!(wfs4, 1, 
         :ORG => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
