@@ -65,7 +65,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     ns2 = Oboe.assignPsgShares(ns,d)
     ns2 |> myshow
 
-    cmt = Oboe.rdTidyWfsByFIPS(fips)
+    cmt = Oboe.rdTidyWfsByFIPS(fips, ns2)
     cmt |> myshow
 
     #do the processing, aggregating by tract/state/county/ap as selected in the args

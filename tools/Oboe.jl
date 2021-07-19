@@ -531,13 +531,16 @@ ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf())
 
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
-function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
+#if the tracts argument is provided, commutes referencing tracts that aren't in iname
+#will be discarded
+function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=DataFrame(),
+     ins::NamingSpec=fn)
     #generate FluTE filename by State's FIPS
     wf_by_FIPS(fips::String) = "usa-wf-$fips.dat"
     
     wfs = map(wf_by_FIPS, fipss)
     wfs2 = [CSV.File(ipath, 
-        header = false,
+        header = false, 
         types =[String,String,String,String,String,String,Int64]) |> 
     DataFrame for ipath in map(f -> joinpath(ins.ifDir,f), wfs)]
 
@@ -552,12 +555,16 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
         :DST => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
     rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
     select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
-    sort!(wfs4,[:ORG,:DST])
+    #Chuck commute pairs that have tract IDs not present in tracts
+    wfs5 = nrow(tracts) > 0 ? # check if tracts has been passed
+        scrubWfs(tracts, wfs4) |> DataFrame :
+        wfs4
+    sort!(wfs5,[:ORG,:DST])
 
-    return wfs4
+    return wfs5
 end
 
-#=return  the commutes for tracts not present in `ns`
+#=return wfs excluding the commutes for tracts not present in `ns`
 ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
 =#
 function scrubWfs(ns::DataFrame,wfs::DataFrame)
