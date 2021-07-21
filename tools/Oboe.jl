@@ -1,5 +1,6 @@
 """
-Author: Yaroslav Salii, 2020+.
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
 
 This is Oboe-Mangle, or maybe Arshyn, with a view to generate instances for testing
 computational methods for networked epidemic models with data from
@@ -27,6 +28,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-03-31   v.0.9.6: min,median,max for nonzero elements in talkDnsy
             v.0.A: add by-AP agg with recomputation bypass in mkPsgMx()
 '21-07-14   v.0.A.1: add checkIfFilesExist and censorFluteTractByFIPS
+'21-07-19   v.1.0: fixed issue where unmatched tract IDs led to a crash
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -51,7 +53,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.A.1"
+const callsign="This is Oboe v.1.0"
 #println(callsign)
 
 #=
@@ -531,7 +533,7 @@ ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf())
 
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
-#if the tracts argument is provided, commutes referencing tracts that aren't in iname
+#if the tracts argument is provided, commutes referencing tracts that aren't in it
 #will be discarded
 function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=DataFrame(),
      ins::NamingSpec=fn)
@@ -556,9 +558,9 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=D
     rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
     select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
     #Chuck commute pairs that have tract IDs not present in tracts
-    wfs5 = nrow(tracts) > 0 ? # check if tracts has been passed
-        scrubWfs(tracts, wfs4) |> DataFrame :
-        wfs4
+    wfs5 = isempty(tracts) ? # check if tracts has been passed
+        wfs4 :
+        scrubWfs(tracts, wfs4) |> DataFrame
     sort!(wfs5,[:ORG,:DST])
 
     return wfs5

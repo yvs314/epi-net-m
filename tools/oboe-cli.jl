@@ -8,8 +8,8 @@ Run me as follows:
 julia oboe-cli.jl --fips FIPS --agg AGG --name NAME [--force]
 
 oboe-cli.jl
-2020-12-10  v.0.0 Initial version
-2020-12-14  v.0.1 Added support for --force
+2021-07-10  v.0.0 Initial version
+2021-07-14  v.0.1 Added support for --force
 2021-07-15  v.0.1.1 YS: clarify help and validation error text
 """
 
