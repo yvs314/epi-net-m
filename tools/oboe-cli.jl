@@ -4,11 +4,12 @@ Author: Kara I, 2021
 The CLI entry point for Oboe. This file is responsible for parsing and validating
 the CLI arguments and passing them to oboe-main.jl where the actual processing happens.
 
-Run me by typing `include("oboe-main.jl").processOboe(...)` at the julia REPL
+Run me as follows:
+julia oboe-cli.jl --fips FIPS --agg AGG --name NAME [--force]
 
 oboe-cli.jl
-?2020-12-10  v.0.0 Initial version
-?2020-12-14  v.0.1 Added support for --force
+2021-07-10  v.0.0 Initial version
+2021-07-14  v.0.1 Added support for --force
 2021-07-15  v.0.1.1 YS: clarify help and validation error text
 """
 

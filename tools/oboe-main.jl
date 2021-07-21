@@ -1,5 +1,6 @@
 """
-Author: Yaroslav Salii, 2020+
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
 
 Main file for Oboe. Putting all the processing together,
 debugging, etc.
@@ -16,6 +17,7 @@ oboe-main.jl
 2021-07-12  v.0.7 Moved CLI parsing to a separate file
 2021-04-14  v.0.8 Added support for tract datasets other than NW and checking 
                   if the output already exists
+2021-07-19  v.1.0: fixed issue where unmatched tract IDs led to a crash
 """
 
 module OboeMain
@@ -65,7 +67,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     ns2 = Oboe.assignPsgShares(ns,d)
     ns2 |> myshow
 
-    cmt = Oboe.rdTidyWfsByFIPS(fips)
+    cmt = Oboe.rdTidyWfsByFIPS(fips, ns2)
     cmt |> myshow
 
     #do the processing, aggregating by tract/state/county/ap as selected in the args

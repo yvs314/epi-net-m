@@ -1,5 +1,6 @@
 """
-Author: Yaroslav Salii, 2020+.
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
 
 This is Oboe-Mangle, or maybe Arshyn, with a view to generate instances for testing
 computational methods for networked epidemic models with data from
@@ -27,6 +28,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-03-31   v.0.9.6: min,median,max for nonzero elements in talkDnsy
             v.0.A: add by-AP agg with recomputation bypass in mkPsgMx()
 '21-07-14   v.0.A.1: add checkIfFilesExist and censorFluteTractByFIPS
+'21-07-19   v.1.0: fixed issue where unmatched tract IDs led to a crash
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -38,7 +40,6 @@ module Oboe
 
 
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
-using Base: func_for_method_checked
 using CSV,DelimitedFiles
 #transforming the data in tabular form;
 using DataFrames
@@ -52,7 +53,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.0.A.1"
+const callsign="This is Oboe v.1.0"
 #println(callsign)
 
 #=
@@ -81,14 +82,12 @@ global const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
-const outputdir = "../data/by-tract"
-
-function checkIfFilesExist(iname::String; ofdir=outputdir)
+function checkIfFilesExist(iname::String; ofdir=fn.ofDir)
     dir = readdir(ofdir)
     any(filename -> startswith(filename, iname), dir)
 end
 
-function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir=outputdir)
+function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir=fn.ofDir)
     ofivs= join([iname,nrow(ivs)],"_") * "-init.csv"
     oftrv= join([iname,nrow(ivs)],"_") * "-trav.dat"
     CSV.write(joinpath(ofdir,ofivs),ivs)
@@ -534,13 +533,16 @@ ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf())
 
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
-function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
+#if the tracts argument is provided, commutes referencing tracts that aren't in it
+#will be discarded
+function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=DataFrame(),
+     ins::NamingSpec=fn)
     #generate FluTE filename by State's FIPS
     wf_by_FIPS(fips::String) = "usa-wf-$fips.dat"
     
     wfs = map(wf_by_FIPS, fipss)
     wfs2 = [CSV.File(ipath, 
-        header = false,
+        header = false, 
         types =[String,String,String,String,String,String,Int64]) |> 
     DataFrame for ipath in map(f -> joinpath(ins.ifDir,f), wfs)]
 
@@ -555,12 +557,16 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"],ins::NamingSpec=fn)
         :DST => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
     rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
     select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
-    sort!(wfs4,[:ORG,:DST])
+    #Chuck commute pairs that have tract IDs not present in tracts
+    wfs5 = isempty(tracts) ? # check if tracts has been passed
+        wfs4 :
+        scrubWfs(tracts, wfs4) |> DataFrame
+    sort!(wfs5,[:ORG,:DST])
 
-    return wfs4
+    return wfs5
 end
 
-#=return  the commutes for tracts not present in `ns`
+#=return wfs excluding the commutes for tracts not present in `ns`
 ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
 =#
 function scrubWfs(ns::DataFrame,wfs::DataFrame)
