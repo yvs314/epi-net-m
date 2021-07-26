@@ -435,16 +435,51 @@ end
 #------AIR---PASSENGER---FLOW---MATRIX----------------------#
 #NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
 function mkPsgMx(ns=assignPsgShares()::DataFrame)
-    retAPs = ns.IATA_Code |> unique #the APs that are designated for at least one `node`
-    #get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
-    aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  
     dim = nrow(ns) #final output matrix is [dim × dim]
+    #need to preserve the original index of each node
+    #so that we know where to insert it in the final matrix
+    insertcols!(ns, :index => 1:dim)
+    #group the nodes into subDFs by their designated airport
+    groupedbyAP = groupby(ns, :IATA_Code)
+    numAPs = length(groupedbyAP)
+    #from this, get list of IATA codes of unique airports that have nodes assigned
+    retAPs = ns.IATA_Code |> unique
+    #get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
+    fmx = mkFlightMx2(grpBTS(),retAPs; daily=true)
+    #initialize output matrix
     outM = fill(0.0, (dim,dim))
-    #for each [from,to] pair, delegate to aux function psg
-    for from ∈ 1:dim, to ∈ 1:dim 
-        outM[from,to] = psg(from,to,ns,aps) #NB! reflexive flights are set to 0.0
-    end 
+    #for each combination of airports (AP1, AP2)...
+    #(this weird iteration is to avoid repeating pairs)
+    for i1 ∈ 1:numAPs, i2 ∈ (i1 + 1):numAPs
+        # get IATA codes of AP1 and AP2
+        ap1 = retAPs[i1]
+        ap2 = retAPs[i2]
+        # get AP1->AP2 and AP2->AP1 passenger numbers
+        flow1to2 = fmx.M[fmx.ix[ap1], fmx.ix[ap2]]
+        flow2to1 = fmx.M[fmx.ix[ap2], fmx.ix[ap1]]
+        # skip over airport pairs that have no travel between them
+        if flow1to2 == 0.0 && flow2to1 == 0.0
+            continue
+        end
+        #for each pair of nodes (n1 ∈ AP1, n2 ∈ AP2)...
+        grp1 = groupedbyAP[i1]
+        grp2 = groupedbyAP[i2]
+        for n1 ∈ 1:nrow(grp1), n2 ∈ 1:nrow(grp2)
+            #calculate psg flow n1->n2 and n2->n1 and store the result
+            outindex1 = grp1.index[n1]
+            outindex2 = grp2.index[n2]
+            shr1      = grp1.shr[n1]
+            shr2      = grp2.shr[n2]
+
+            outM[outindex1, outindex2] = psg2(shr1, shr2, flow1to2)
+            outM[outindex2, outindex1] = psg2(shr2, shr1, flow2to1)
+        end
+    end
     return outM
+end
+
+function psg2(fromshr, toshr, totalflow)
+    fromshr * toshr * totalflow
 end
 
 #=
@@ -452,6 +487,8 @@ NB! now a method for partition-to-partition flights
 `ns` MUST have [:IATA_Code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
 =#
 function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
+    println("mkPsgMx with 4 args")
+
     retAPs = ns.IATA_Code |> unique |> sort #the APs that are designated for at least one `node`
     aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  #get the daily AP-to-AP flows for the designated APs
     dim = nrow(pns) #final output matrix is [dim × dim], for nodes in `pns`
@@ -471,6 +508,7 @@ function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
             end
         end
     end
+    println("Done running mkPsgMx")
     return outM
 end
 
