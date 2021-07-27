@@ -464,12 +464,18 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
         #for each pair of nodes (n1 ∈ AP1, n2 ∈ AP2)...
         grp1 = groupedbyAP[i1]
         grp2 = groupedbyAP[i2]
+
+        indices1 = collect(grp1.index) :: Vector{Int}
+        indices2 = collect(grp2.index) :: Vector{Int}
+        shares1  = collect(grp1.shr)   :: Vector{Float64}
+        shares2 =  collect(grp2.shr)   :: Vector{Float64}
+
         for n1 ∈ 1:nrow(grp1), n2 ∈ 1:nrow(grp2)
             #calculate psg flow n1->n2 and n2->n1 and store the result
-            outindex1 = grp1.index[n1]
-            outindex2 = grp2.index[n2]
-            shr1      = grp1.shr[n1]
-            shr2      = grp2.shr[n2]
+            outindex1 = indices1[n1]
+            outindex2 = indices2[n2]
+            shr1      = shares1[n1]
+            shr2      = shares2[n2]
 
             outM[outindex1, outindex2] = psg2(shr1, shr2, flow1to2)
             outM[outindex2, outindex1] = psg2(shr2, shr1, flow2to1)
