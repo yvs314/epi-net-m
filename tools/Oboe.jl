@@ -481,6 +481,7 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
             outM[outindex2, outindex1] = psg2(shr2, shr1, flow2to1)
         end
     end
+    select!(ns, Not(:index)) #drop the index column from ns just in case
     return outM
 end
 
