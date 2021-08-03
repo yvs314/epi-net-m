@@ -433,12 +433,19 @@ function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_
 end
 
 #------AIR---PASSENGER---FLOW---MATRIX----------------------#
-#NB! `nodes`:[:ID,:Pop,:IATA_Code,:shr]
-function mkPsgMx(ns=assignPsgShares()::DataFrame)
-    dim = nrow(ns) #final output matrix is [dim × dim]
-    #need to preserve the original index of each node
-    #so that we know where to insert it in the final matrix
-    insertcols!(ns, :index => 1:dim)
+#NB! `ns`:[:ID,:Pop,:IATA_Code,:shr]
+#NB! `outindices` must be at least the same length as `nrow(ns)`
+#NB! All indices in `outindices` must not exceed `dim`
+#This function calculates the air travel flow between each node pair in `ns`
+#and accumulate it in a dim × dim adjacency matrix M, at a position determined
+#by the `outindices` entries whose indices corresponds to the sequential indices
+#of the nodes in the pair. So M[i1, i2] is the total passenger flow 
+#from all nodes that have the `outindex` i1
+#to all nodes that have the `outindex` i2.
+function mkPsgMx(ns::DataFrame,
+                 outindices::AbstractArray{Int},
+                 dim::Int)
+    insertcols!(ns, :outindex => outindices)
     #group the nodes into subDFs by their designated airport
     groupedbyAP = groupby(ns, :IATA_Code)
     numAPs = length(groupedbyAP)
@@ -465,23 +472,27 @@ function mkPsgMx(ns=assignPsgShares()::DataFrame)
         grp1 = groupedbyAP[i1]
         grp2 = groupedbyAP[i2]
 
-        indices1 = collect(grp1.index) :: Vector{Int}
-        indices2 = collect(grp2.index) :: Vector{Int}
-        shares1  = collect(grp1.shr)   :: Vector{Float64}
-        shares2 =  collect(grp2.shr)   :: Vector{Float64}
+        indices1 = collect(grp1.outindex) :: Vector{Int}
+        indices2 = collect(grp2.outindex) :: Vector{Int}
+        shares1  = collect(grp1.shr)      :: Vector{Float64}
+        shares2 =  collect(grp2.shr)      :: Vector{Float64}
 
         for n1 ∈ 1:nrow(grp1), n2 ∈ 1:nrow(grp2)
             #calculate psg flow n1->n2 and n2->n1 and store the result
             outindex1 = indices1[n1]
             outindex2 = indices2[n2]
-            shr1      = shares1[n1]
-            shr2      = shares2[n2]
+            #do not count travel within the same subdivision
+            if outindex1 == outindex2
+                continue
+            end
+            shr1 = shares1[n1]
+            shr2 = shares2[n2]
 
-            outM[outindex1, outindex2] = psg2(shr1, shr2, flow1to2)
-            outM[outindex2, outindex1] = psg2(shr2, shr1, flow2to1)
+            outM[outindex1, outindex2] += psg2(shr1, shr2, flow1to2)
+            outM[outindex2, outindex1] += psg2(shr2, shr1, flow2to1)
         end
     end
-    select!(ns, Not(:index)) #drop the index column from ns just in case
+    select!(ns, Not(:outindex)) #drop the outindex column from ns just in case
     return outM
 end
 
@@ -489,34 +500,35 @@ function psg2(fromshr, toshr, totalflow)
     fromshr * toshr * totalflow
 end
 
+#NB! `ns`:[:ID,:Pop,:IATA_Code,:shr]
+#Returns an adjacency matrix representing the air passenger flow
+#between all nodes in `ns`.
+function mkPsgMx(ns::DataFrame)
+    dim = nrow(ns)
+    mkPsgMx(ns, 1:dim, dim)
+end
+
 #=
 NB! now a method for partition-to-partition flights
 `ns` MUST have [:IATA_Code,:shr]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
 =#
 function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
-    println("mkPsgMx with 4 args")
-
-    retAPs = ns.IATA_Code |> unique |> sort #the APs that are designated for at least one `node`
-    aps = mkFlightMx2(grpBTS(),retAPs; daily=true)  #get the daily AP-to-AP flows for the designated APs
-    dim = nrow(pns) #final output matrix is [dim × dim], for nodes in `pns`
-    outM = fill(0.0, (dim,dim))
-    if("IATA_Code" ∈ (pns |> names) && #detect by-AP aggregation
-        !force_recompute && #explicit request not to recompute the matrix
-        retAPs == pns.IATA_Code) #ensure by-AP aggregation was correct for `ns`
+    #first, assuming force_recompute is disabled, try to detect by-AP aggregation...
+    if !force_recompute && "IATA_Code" ∈ names(pns) &&
+        pns.IATA_Code == (ns.IATA_Code |> unique |> sort)
+        #...and if it is, just return the by-AP travel matrix
         println("By-AP aggregation engaged. Using AP-to-AP travel matrix directly.")
-        outM = aps.M #the diagonal is zero by definition of mkFlightMx2()
-    else
-    #proceed column-wise
-        for pto ∈ 1:dim, pfrom ∈ 1:dim
-            if pfrom ≠ pto #no reflexive air travel (reflexive defaults to 0.0 by initialization)
-                outM[pfrom,pto] = sum(psg(efrom,eto,ns,aps) #sum the travel between consituents
-                    for eto ∈ prt[pns.Name[pto]], 
-                        efrom ∈ prt[pns.Name[pfrom]] )
-            end
-        end
+        return mkFlightMx2(grpBTS(), retAPs; daily=true).M
     end
-    println("Done running mkPsgMx")
-    return outM
+    #build a dict mapping the name of a partition to its index in pns
+    partindices = ((name, findfirst(n -> n == name, pns.Name)[1]) for name in keys(prt)) |> Dict{String, Int}
+    #build an array mapping each node in ns to the index of its partition in pns
+    outindices = zeros(Int, nrow(ns))
+    for partname ∈ keys(prt), nodeindex ∈ prt[partname]
+        outindices[nodeindex] = partindices[partname]
+    end
+
+    mkPsgMx(ns, outindices, length(prt))
 end
 
 
