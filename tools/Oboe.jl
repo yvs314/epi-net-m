@@ -444,7 +444,8 @@ end
 #to all nodes that have the `outindex` i2.
 function mkPsgMx(ns::DataFrame,
                  outindices::AbstractArray{Int},
-                 dim::Int)
+                 dim::Int,
+                 accumulate::Bool=true)
     insertcols!(ns, :outindex => outindices)
     #group the nodes into subDFs by their designated airport
     groupedbyAP = groupby(ns, :IATA_Code)
@@ -488,8 +489,13 @@ function mkPsgMx(ns::DataFrame,
             shr1 = shares1[n1]
             shr2 = shares2[n2]
 
-            outM[outindex1, outindex2] += psg2(shr1, shr2, flow1to2)
-            outM[outindex2, outindex1] += psg2(shr2, shr1, flow2to1)
+            if accumulate
+                outM[outindex1, outindex2] += psg2(shr1, shr2, flow1to2)
+                outM[outindex2, outindex1] += psg2(shr2, shr1, flow2to1)
+            else
+                outM[outindex1, outindex2] = psg2(shr1, shr2, flow1to2)
+                outM[outindex2, outindex1] = psg2(shr2, shr1, flow2to1)
+            end
         end
     end
     select!(ns, Not(:outindex)) #drop the outindex column from ns just in case
@@ -505,7 +511,7 @@ end
 #between all nodes in `ns`.
 function mkPsgMx(ns::DataFrame)
     dim = nrow(ns)
-    mkPsgMx(ns, 1:dim, dim)
+    mkPsgMx(ns, 1:dim, dim, false)
 end
 
 #=
@@ -514,8 +520,9 @@ NB! now a method for partition-to-partition flights
 =#
 function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
     #first, assuming force_recompute is disabled, try to detect by-AP aggregation...
+    retAPs = ns.IATA_Code |> unique |> sort
     if !force_recompute && "IATA_Code" ∈ names(pns) &&
-        pns.IATA_Code == (ns.IATA_Code |> unique |> sort)
+        pns.IATA_Code == retAPs
         #...and if it is, just return the by-AP travel matrix
         println("By-AP aggregation engaged. Using AP-to-AP travel matrix directly.")
         return mkFlightMx2(grpBTS(), retAPs; daily=true).M
