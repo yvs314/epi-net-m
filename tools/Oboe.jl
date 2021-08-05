@@ -490,11 +490,11 @@ function mkPsgMx(ns::DataFrame,
             shr2 = shares2[n2]
 
             if accumulate
-                outM[outindex1, outindex2] += psg2(shr1, shr2, flow1to2)
-                outM[outindex2, outindex1] += psg2(shr2, shr1, flow2to1)
+                outM[outindex1, outindex2] += psg(shr1, shr2, flow1to2)
+                outM[outindex2, outindex1] += psg(shr2, shr1, flow2to1)
             else
-                outM[outindex1, outindex2] = psg2(shr1, shr2, flow1to2)
-                outM[outindex2, outindex1] = psg2(shr2, shr1, flow2to1)
+                outM[outindex1, outindex2] = psg(shr1, shr2, flow1to2)
+                outM[outindex2, outindex1] = psg(shr2, shr1, flow2to1)
             end
         end
     end
@@ -502,7 +502,7 @@ function mkPsgMx(ns::DataFrame,
     return outM
 end
 
-function psg2(fromshr, toshr, totalflow)
+function psg(fromshr, toshr, totalflow)
     fromshr * toshr * totalflow
 end
 
@@ -536,18 +536,6 @@ function mkPsgMx(ns::DataFrame,pns::DataFrame,prt::Dict;force_recompute=false)
     end
 
     mkPsgMx(ns, outindices, length(prt))
-end
-
-
-#---AUX::---AIR---PASSENGER---FLOW---MATRIX----------------------#
-#APs MUST be a NamedTuple (M,ix,xi), as returned by mkFlightMx2
-#ns MUST have [:shr,:IATA_Code]
-function psg(from::Integer,to::Integer,ns::DataFrame,APs)
-    if ns.IATA_Code[from] ≠ ns.IATA_Code[to]
-        return ns.shr[from] * ns.shr[to] * 
-            APs.M[APs.ix[ns.IATA_Code[from]],APs.ix[ns.IATA_Code[to]]] 
-    else return 0.0
-    end
 end
 
 #---AUX::---PARTITION---AND---REVERSE------------------------#
