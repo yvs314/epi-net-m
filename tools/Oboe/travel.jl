@@ -3,6 +3,14 @@ This module is responsible for producing the commute and air travel matrices.
 """
 module Travel
 using DataFrames
+using FromFile
+
+@from "airports.jl" using Airports: mkFlightMx2, grpBTS
+@from "tracts.jl" using Tracts: assignPsgShares
+@from "aggregation.jl" using Aggregation: revexplPart
+
+export mkCmtMx,
+       mkPsgMx
 
 #=return wfs excluding the commutes for tracts not present in `ns`
 ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
@@ -48,7 +56,7 @@ function mkCmtMx(ns::DataFrame,pns::DataFrame,prt::Dict,wfs::DataFrame)
     dim = nrow(pns) 
     ixs = zip(pns.Name, 1:dim) |> Dict # Name => index
    # xis = zip(1:dim, pns.Name) |> Dict # index => Name
-    revp = Oboe.revexplPart(prt,ns,ixs) #generate the reverse-exploded partition
+    revp = revexplPart(prt,ns,ixs) #generate the reverse-exploded partition
     outM = fill(0.0,(dim,dim)) # part-to-part commute matrix, init to 0.0
     for trip ∈ eachrow(wfs)
         if revp[trip.ORG] ≠ revp[trip.DST] # assuming the commute was not reflexive,

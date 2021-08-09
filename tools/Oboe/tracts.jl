@@ -5,6 +5,30 @@ airport/commute data.
 """
 module Tracts
 using DataFrames
+using FromFile
+using Statistics: mean
+using Distances: haversine
+@from "aggregation.jl" using Aggregation: aggBySte
+
+export assignDsgAPs,
+       assignPsgShares,
+       mkAP_pop_dict
+
+
+#= Distance
+Starting “haversine”/orthodromic/big-circle distance
+Should get the almost true (ball vs. geoid)
+when coupled with Earth's radius, or rather, AP's and loc's altitudes
+CAVEAT: getting both altitudes is almost as bad 
+as scrubbing “road distances” from the net
+TODO: route through JuliaGeo/Geodesy
+=#
+
+#Earth's radius in km, IAU 2015
+const R_Earth= 6371 
+#x and y are Union{AbstractVector{T}, NTuple{2, T}} where T<:Real
+myDist(x,y) = haversine(x,y,R_Earth)
+
 #= Get Designated AP
 for a node-row [:ID(:Ste,:Cty,:Tra),:Pop,:LAT,:LNG],
 return the *nearest* AP's :IATA_Code and the distance :dst to it in km   
@@ -26,7 +50,7 @@ their designated APs, [:ID,:Pop,:LAT,:LNG,:IATA_Code]; :IATA_Code for the design
 dbg columns: :dst distance to the dsg AP, :psg = :IN + :OUT passengers through dsg_AP
 =#
 function assignDsgAPs(nodes=aggBySte()::DataFrame,APs=censorAggFlows()::DataFrame)
-    dsgAPs = map(n -> Oboe.getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
+    dsgAPs = map(n -> getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
     hcat(nodes,dsgAPs)
 end
 
@@ -67,7 +91,7 @@ end
 #apply the above to all nodes. 
 #each node MUST have an :IATA_Code column (its *designated AP*)
 function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_pop_dict()::Dict)
-    psgShares = map(n -> Oboe.nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
+    psgShares = map(n -> nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
     out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
 end
 end

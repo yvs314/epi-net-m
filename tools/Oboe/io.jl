@@ -3,6 +3,18 @@ This module is responsible for handling input and output, i.e.
 reading tract and travel data from disk and outputting travel matrices.
 """
 module IO
+
+export fn,
+       writeMe,
+       ns2iv,
+       checkIfFilesExist,
+       rdFluteTract,
+       rdWholeUS,
+       censorFluteTractByFIPS,
+       rdAPs,
+       rdBTS,
+       rdTidyWfsByFIPS
+
 using DataFrames
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
 using CSV,DelimitedFiles
@@ -24,7 +36,7 @@ end
 
 #the naming conventions I am going to use
 #as well as input and output directories
-global const fn=NamingSpec("-","_"
+const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract","flute")
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
@@ -48,6 +60,98 @@ global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
 #raw OpenFlights AP data
 global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 #TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
+
+ 
+#===AIRPORTS===#
+
+const apAllColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
+#reordered in the order of necessity; 3-letter IATA code as ID
+const apRetainedColNames=[:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
+#=
+read the OpenFlights.org's airports.dat, and retain only the columns
+I feel I may use; put :IATA_Code,:LAT,:LNG first,
+these are definitely useful
+CAVEAT: some missing values in :City, some weird values in :Country
+TODO: resolve this caveat
+=#
+function rdAPs(ifName=ifAPs::String)
+    out=CSV.File(ifName,header=false) |> DataFrame
+    rename!(out, apAllColNames)
+    #retain only the useful columns
+    select!(out,apRetainedColNames)
+end
+
+#---READ---BTS--FLIGHTS-------------------------#
+#=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
+#set the columns to [:ORG,:DST,:PSG] for uniformity=#
+function rdBTS(ifName=ifBTS::String)
+    rawBTS = select(CSV.read(ifName,DataFrame), :1,:5,:7)
+    if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
+        rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
+    else #∃ non-integer passengers-per-year entry
+        error("CAVEAT: *non-integer* PASSENGERS in Flights input.")
+    end
+    rename!(rawBTS,[:PSG,:ORG,:DST])
+    return select(rawBTS,[:ORG,:DST,:PSG]) #
+end
+
+
+#======COMMUTER=====FLOW==================#
+#--AUX:--READ--CMT------#
+#show the wf names
+function lsWf(ins::NamingSpec = fn)
+    filter(s::String -> startswith(s,"usa-wf-"),readdir(ins.ifDir))
+end
+
+ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf()) 
+
+
+#read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
+#if the tracts argument is provided, commutes referencing tracts that aren't in it
+#will be discarded
+function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=DataFrame(),
+     ins::NamingSpec=fn)
+    #generate FluTE filename by State's FIPS
+    wf_by_FIPS(fips::String) = "usa-wf-$fips.dat"
+    
+    wfs = map(wf_by_FIPS, fipss)
+    wfs2 = [CSV.File(ipath, 
+        header = false, 
+        types =[String,String,String,String,String,String,Int64]) |> 
+    DataFrame for ipath in map(f -> joinpath(ins.ifDir,f), wfs)]
+
+    to_keep(r) = r[4] ∈ fipss && r[3]≠r[6]
+    #TIDY: retain only the commute between states in `fipss`; this chucks the REFLEXIVE commute
+    wfs3 = map(df -> filter(to_keep,eachrow(df) ) |> DataFrame,wfs2)
+    wfs4 = (length(wfs3) > 1) ? reduce(vcat,wfs3) : wfs3[1] #add them all together
+    #combine the State,County,Tract triples into single columns
+    insertcols!(wfs4, 1, 
+        :ORG => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column1, wfs4.Column2,wfs4.Column3))
+    insertcols!(wfs4, 2, 
+        :DST => map((s,z,w)-> join([s,z,w],"~"),wfs4.Column4, wfs4.Column5,wfs4.Column6))
+    rename!(wfs4, :Column7 => :CMT) #these are daily commuters between :ORG and :DST
+    select!(wfs4,:ORG,:DST,:CMT) #chuck the unnecessary
+    #Chuck commute pairs that have tract IDs not present in tracts
+    wfs5 = isempty(tracts) ? # check if tracts has been passed
+        wfs4 :
+        scrubWfs(tracts, wfs4) |> DataFrame
+    sort!(wfs5,[:ORG,:DST])
+
+    return wfs5
+end
+
+#=return wfs excluding the commutes for tracts not present in `ns`
+ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
+=#
+function scrubWfs(ns::DataFrame,wfs::DataFrame)
+    allCmtTracts = (wfs.ORG |> unique) ∪ (wfs.DST |> unique)
+     #these tracts are not present in FluTE's `us-tracts.dat`
+    notPresent = setdiff(allCmtTracts,ns.Name)
+    retwfs = filter(r -> r.ORG ∉ notPresent && r.DST ∉ notPresent,eachrow(wfs))
+    return retwfs
+end
+
+
 
 #===FluTE======READ=&=PROCESS===FluTE===TRACTS=============#
 # sample usage: Oboe.lsTracts()[4] |> Oboe.rdFluteTract |> Oboe.aggBySte
@@ -83,10 +187,6 @@ function censorFluteTractByFIPS(tracts::DataFrame, fips::Vector{String})
     filter(row -> row.Ste ∈ fips, tracts)
 end
 
-
-
-
-
 #= Select an `id`-generating function
 0. if it's a census tract, just write $Ste~$Cty~$Tra
 1. if it's a county or a state, write as Integer to match `us-10m.json`
@@ -105,9 +205,6 @@ function select_mkid(nms::Array{String})
         error("Nodes header not recognized. Can't generate an :id without FIPS or IATA_Code.")
      end
  end
-
-
- 
 
 #= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
 input MUST have [:I_i,:S_i]=#

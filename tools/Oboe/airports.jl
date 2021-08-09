@@ -3,47 +3,16 @@ This module is responsible for preprocessing airport and flight data.
 """
 module Airports
 using DataFrames
+using FromFile
+@from "./io.jl" using IO: rdAPs, rdBTS
+
+export grpBTS,
+       mkFlightMx2,
+       censorAggFlows
 
 #=======WORKING===WITH===AIRPORTS====================#
 
-
-#-------TIDY---OPENFLIGHTS---INPUT-------------------#
-
-#move these consts to BASE?
-const apAllColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
-#reordered in the order of necessity; 3-letter IATA code as ID
-const apRetainedColNames=[:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
-
-#=
-read the OpenFlights.org's airports.dat, and retain only the columns
-I feel I may use; put :IATA_Code,:LAT,:LNG first,
-these are definitely useful
-CAVEAT: some missing values in :City, some weird values in :Country
-TODO: resolve this caveat
-=#
-function rdAPs(ifName=ifAPs::String)
-    out=CSV.File(ifName,header=false) |> DataFrame
-    rename!(out, apAllColNames)
-    #retain only the useful columns
-    select!(out,apRetainedColNames)
-end
-
-
 #============BTS===FLIGHT===DATA===PROCESSING============#
-
-#---READ---BTS--FLIGHTS-------------------------#
-#=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
-#set the columns to [:ORG,:DST,:PSG] for uniformity=#
-function rdBTS(ifName=ifBTS::String)
-    rawBTS = select(CSV.read(ifName,DataFrame), :1,:5,:7)
-    if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
-        rawBTS.PASSENGERS=convert(Array{Int64,1},rawBTS.PASSENGERS)
-    else #∃ non-integer passengers-per-year entry
-        error("CAVEAT: *non-integer* PASSENGERS in Flights input.")
-    end
-    rename!(rawBTS,[:PSG,:ORG,:DST])
-    return select(rawBTS,[:ORG,:DST,:PSG]) #
-end
 
 
 #---BTS---TIDY--AGGREGATE---ETC---------------------------#

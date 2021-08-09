@@ -4,6 +4,16 @@ This module is responsible for grouping and aggregating tracts to various levels
 
 module Aggregation
 using DataFrames
+using Statistics: mean
+using FromFile
+@from "io.jl" using IO: rdFluteTract
+
+export aggByCty,
+       aggBySte,
+       aggByAP,
+       partByCty,
+       partByAP,
+       partBySte
 
 #--------AGGREGATE---TRACT-LIKE---DATA--------------#
 

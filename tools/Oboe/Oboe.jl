@@ -10,12 +10,21 @@ computational methods for networked epidemic models with data from
 module Oboe
 using FromFile
 
-const callsign="This is Oboe v.1.0"
 
-@from "io.jl"          import IO
-@from "airports.jl"    import Airports
-@from "tracts.jl"      import Tracts
-@from "aggregation.jl" import Aggregation
-@from "travel.jl"      import Travel
+
+const callsign = "This is Oboe v.1.0" * begin
+    branch = readchomp(`sh -c "git branch --show-current 2> /dev/null || echo master"`)
+    if branch == "master"
+        ""
+    else
+        "-" * branch
+    end
+end
+
+@from "io.jl"          using IO
+@from "airports.jl"    using Airports
+@from "tracts.jl"      using Tracts
+@from "aggregation.jl" using Aggregation
+@from "travel.jl"      using Travel
 
 end
