@@ -28,11 +28,12 @@ fipsAll =  ["01", "04", "05", "06", "08", "09", "10", "11", "12", "13", "16", "1
             "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "44", "45",
             "46", "47", "48", "49", "50", "51", "53", "54", "55", "56"]
 
-#here's a crutch to load from current path;
-#TODO: make a package
-push!(LOAD_PATH,pwd())
-using Oboe
+
+using FromFile
 using ArgParse
+@from "./Oboe/Oboe.jl" import Oboe
+
+export processOboe
 
 println(Oboe.callsign)
 

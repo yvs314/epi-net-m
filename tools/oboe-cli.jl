@@ -13,10 +13,9 @@ oboe-cli.jl
 2021-07-15  v.0.1.1 YS: clarify help and validation error text
 """
 
+using FromFile 
 using ArgParse
-# using OboeMain
-include("oboe-main.jl") # I'm still not entirely sure how packages work in Julia
-                        # so using include for now --Kara
+@from "oboe-main.jl" import OboeMain
 
 #initialize CLI argument parsing
 s = ArgParseSettings()
