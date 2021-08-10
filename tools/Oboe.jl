@@ -29,6 +29,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
             v.0.A: add by-AP agg with recomputation bypass in mkPsgMx()
 '21-07-14   v.0.A.1: add checkIfFilesExist and censorFluteTractByFIPS
 '21-07-19   v.1.0: fixed issue where unmatched tract IDs led to a crash
+'21-08-10   v.1.1: significantly improved performance of mkPsgMx
 """
 
 #TODO: make debug defaults parameterized, via macros or otherwise
@@ -53,7 +54,7 @@ using Distances
 
 #====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
 
-const callsign="This is Oboe v.1.0"
+const callsign="This is Oboe v.1.1"
 #println(callsign)
 
 #=
