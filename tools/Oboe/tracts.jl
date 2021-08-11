@@ -5,10 +5,8 @@ airport/commute data.
 """
 module Tracts
 using DataFrames
-using FromFile
 using Statistics: mean
 using Distances: haversine
-@from "aggregation.jl" using Aggregation: aggBySte
 
 export assignDsgAPs,
        assignPsgShares,
@@ -25,7 +23,7 @@ TODO: route through JuliaGeo/Geodesy
 =#
 
 #Earth's radius in km, IAU 2015
-const R_Earth= 6371 
+const R_Earth = 6371 
 #x and y are Union{AbstractVector{T}, NTuple{2, T}} where T<:Real
 myDist(x,y) = haversine(x,y,R_Earth)
 
@@ -36,7 +34,7 @@ return the *nearest* AP's :IATA_Code and the distance :dst to it in km
 NB: worked slow-ish in Jupyter Notebook; might rework without sorting all this thing.
 UPD: this slow-down was probably due to lack of caching with arguments by default
 =#
-function getDsgAP(node=aggBySte()[1,:]::DataFrameRow,APs=censorAggFlows()::DataFrame)
+function getDsgAP(node::DataFrameRow,APs=censorAggFlows()::DataFrame)
     alle=[(dst = myDist((node.LAT,node.LNG)
             ,(ap.LAT,ap.LNG))
             ,IATA_Code = ap.IATA_Code
@@ -49,7 +47,7 @@ end
 their designated APs, [:ID,:Pop,:LAT,:LNG,:IATA_Code]; :IATA_Code for the designated AP
 dbg columns: :dst distance to the dsg AP, :psg = :IN + :OUT passengers through dsg_AP
 =#
-function assignDsgAPs(nodes=aggBySte()::DataFrame,APs=censorAggFlows()::DataFrame)
+function assignDsgAPs(nodes::DataFrame,APs=censorAggFlows()::DataFrame)
     dsgAPs = map(n -> getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
     hcat(nodes,dsgAPs)
 end
@@ -60,7 +58,7 @@ end
 #------------AUX-----------#
 #say how many people fly through each AP; default to per-state aggregation
 #`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
-function mkClusterPops(nodes=assignDsgAPs(aggBySte())::DataFrame)
+function mkClusterPops(nodes::DataFrame)
     #group by the same designated AP: each group is this AP's __catchment area__
     gd = groupby(nodes,[:IATA_Code]) 
     #= the prime here is Σpopulation by designated AP, 
@@ -70,7 +68,7 @@ end
 
 #TODO: consider leaving it *inside* `assignDsgAPs`, it has to be called anyway
 #make a `Dict` mapping each AP's ID (:IATA_Code) to the :Pop of its *catchment area*
-function mkAP_pop_dict(nodes=assignDsgAPs(aggBySte())::DataFrame )
+function mkAP_pop_dict(nodes::DataFrame)
     cache=mkClusterPops(nodes)
     return Dict(cache.IATA_Code .=> cache.Pop)
 end
@@ -84,13 +82,13 @@ end
 
 #for a node `n`, the fraction of pop in `dsg_n`'s catchment area
 #the node MUST have an :IATA_Code column (its *designated AP*)
-function nodePsgShare(node = assignDsgAPs()[1,:]::DataFrameRow,dAP_pop=mkAP_pop_dict()::Dict)
+function nodePsgShare(node::DataFrameRow,dAP_pop::Dict)
     return node.Pop / dAP_pop[node.IATA_Code]
 end
 
 #apply the above to all nodes. 
 #each node MUST have an :IATA_Code column (its *designated AP*)
-function assignPsgShares(nodes=assignDsgAPs(aggBySte())::DataFrame,dAP_pop=mkAP_pop_dict()::Dict)
+function assignPsgShares(nodes::DataFrame,dAP_pop::Dict)
     psgShares = map(n -> nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
     out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
 end

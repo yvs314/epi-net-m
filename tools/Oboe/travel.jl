@@ -6,7 +6,6 @@ using DataFrames
 using FromFile
 
 @from "airports.jl" using Airports: mkFlightMx2, grpBTS
-@from "tracts.jl" using Tracts: assignPsgShares
 @from "aggregation.jl" using Aggregation: revexplPart
 
 export mkCmtMx,

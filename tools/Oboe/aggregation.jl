@@ -1,12 +1,9 @@
 """
 This module is responsible for grouping and aggregating tracts to various levels.
 """
-
 module Aggregation
 using DataFrames
 using Statistics: mean
-using FromFile
-@from "io.jl" using IO: rdFluteTract
 
 export aggByCty,
        aggBySte,
@@ -37,7 +34,7 @@ with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 TODO: put the by--end output into a variable and add post-processing (adding the ID)
 =#
-function aggBySte(idf=rdFluteTract()::DataFrame;make_names=true)
+function aggBySte(idf::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste]) #group by U.S. State FIPS
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
     if make_names && "Name" ∉ names(out)
@@ -49,7 +46,7 @@ end
 with dumb Euclidean centroid for geographical coordinates
 Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
 =#
-function aggByCty(idf=rdFluteTract()::DataFrame;make_names=true)
+function aggByCty(idf::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste,:Cty]) #group by U.S. County FIPS, within the same State FIPS 
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
     if make_names && "Name" ∉ names(out)
