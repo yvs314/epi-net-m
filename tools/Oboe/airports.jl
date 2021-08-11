@@ -10,13 +10,7 @@ export grpBTS,
        mkFlightMx2,
        censorAggFlows
 
-#=======WORKING===WITH===AIRPORTS====================#
-
-#============BTS===FLIGHT===DATA===PROCESSING============#
-
-
-#---BTS---TIDY--AGGREGATE---ETC---------------------------#
-
+#===BTS FLIGHT DATA PROCESSING===#
 #=
 sum the passengers on the flights with same (ORG,DST) pairs
 sort lexicographically in (ORG,DST) order
@@ -28,7 +22,37 @@ function grpBTS(idf=rdBTS()::DataFrame)
     sort!(out,[:ORG,:DST]) #sort by departure/arrival AP names
 end
 
+#=
+in: apCodes [:IATA_Code], 
+output: a `df` [:IATA_Code,:IN,:OUT,:TOUR],
+with :IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
+in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
+(opt) :TTL=:IN+:OUT,
+=#
+function mkAggFlows2(apCodes::Array{String}=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
+    out=DataFrame(IATA_Code=apCodes
+#col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
+    ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
+#row-wise total sans the reflexive, `missing` if the departures are only reflexive
+    ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
+#no. reflexive travelers, or `missing`
+    ,TOUR=[M[i,i] for i ∈ 1:size(M)[1]] )#just the reflexive travelers
+return out
+end
 
+#TBD: enplanement is just OUT, so maybe not sum it with in.
+#TBD: rename to dropSmallAPs
+#only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)
+function censorAggFlows(p=2500::Number,idf=pickCleanAPs()::DataFrame)
+    if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
+    filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
+end
+
+#throw out the APs with missing IN or OUT enplanements
+scrubAPs(APs=mkAggFlows2()::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
+,eachrow(APs)) |> DataFrame
+
+#===CONSTRUCTING THE FLIGHT MATRIX===#
 #=
 Transform a *list of arcs* into *adjacency matrix*
 input: DF must have [:ORG,:DST,:PSG] cols
@@ -69,48 +93,12 @@ function mkFlightMx2(fs::DataFrame, iretAPs::Array{String};
         M_[ix_[row.ORG],ix_[row.DST]] = row.PSG  
     end
 
-
     outM = daily ? map(x -> x/365,M_) : M_ #annual-to-daily, if requested
     return (M=outM, ix = ix_, xi = xi_,apCodes = retAPs)
 end
 
-#=
-in: apCodes [:IATA_Code], 
-output: a `df` [:IATA_Code,:IN,:OUT,:TOUR],
-with :IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
-in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted
-(opt) :TTL=:IN+:OUT,
-=#
-function mkAggFlows2(apCodes::Array{String}=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
-        out=DataFrame(IATA_Code=apCodes
-    #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
-        ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
-    #row-wise total sans the reflexive, `missing` if the departures are only reflexive
-        ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
-    #no. reflexive travelers, or `missing`
-        ,TOUR=[M[i,i] for i ∈ 1:size(M)[1]] )#just the reflexive travelers
-    return out
-end
-
-
-#------BTS----CENSORING--------------------#
-
-#TBD: enplanement is just OUT, so maybe not sum it with in.
-#TBD: rename to dropSmallAPs
-#only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)
-function censorAggFlows(p=2500::Number,idf=pickCleanAPs()::DataFrame)
-    if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
-    filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
-end
-
-#throw out the APs with missing IN or OUT enplanements
-scrubAPs(APs=mkAggFlows2()::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
-,eachrow(APs)) |> DataFrame
-
-#===========INTERCONNECT===================#
-
+#===LINKING BTS DATA WITH OPENFLIGHTS===#
 #=====BTS=<-->=OPENFLIGHTS=======#
-
 
 #pick just the given APs (by IATA_Code) from all in dfAPinfo
 #output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
@@ -127,6 +115,5 @@ Also remove missings from the :IN and :OUT
 function pickCleanAPs(myAPs=mkAggFlows2()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
     pickAPs(myAPs,dfAPinfo) |> scrubAPs
 end
-
 
 end

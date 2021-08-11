@@ -12,6 +12,7 @@ export assignDsgAPs,
        assignPsgShares,
        mkAP_pop_dict
 
+#===ASSIGNING DESIGNATED AIRPORTS===#
 
 #= Distance
 Starting “haversine”/orthodromic/big-circle distance
@@ -52,9 +53,6 @@ function assignDsgAPs(nodes::DataFrame,APs=censorAggFlows()::DataFrame)
     hcat(nodes,dsgAPs)
 end
 
-#----NODE-TO-NODE---PASSENGER--FLOWS----FROM--AP--DAILY--ENPLANEMENTS-----#
-#CAVEAT: all nodes in this section must have a designated AP (:IATA_Code column)
-
 #------------AUX-----------#
 #say how many people fly through each AP; default to per-state aggregation
 #`nodes` must have designated APs (:IATA_Code) and populations (:Pop)
@@ -79,7 +77,6 @@ function aggByAPs()
     return assignDsgAPs(rdFluteTract()) |> mkClusterPops
 end
 
-
 #for a node `n`, the fraction of pop in `dsg_n`'s catchment area
 #the node MUST have an :IATA_Code column (its *designated AP*)
 function nodePsgShare(node::DataFrameRow,dAP_pop::Dict)
@@ -92,4 +89,5 @@ function assignPsgShares(nodes::DataFrame,dAP_pop::Dict)
     psgShares = map(n -> nodePsgShare(n,dAP_pop), eachrow(nodes)) #compute the shares
     out = hcat(nodes,DataFrame("shr" => psgShares)) #add them as a :shr column
 end
+
 end

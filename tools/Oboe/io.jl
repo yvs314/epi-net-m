@@ -6,28 +6,28 @@ module IO
 
 export fn,
        writeMe,
-       ns2iv,
        checkIfFilesExist,
+       rdAPs,
+       rdBTS,
+       rdTidyWfsByFIPS,
        rdFluteTract,
        rdWholeUS,
        censorFluteTractByFIPS,
-       rdAPs,
-       rdBTS,
-       rdTidyWfsByFIPS
+       ns2iv
 
 using DataFrames
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
 using CSV,DelimitedFiles
 
-#====BASE===FILENAMES==TYPES==DATA=STRUCTURES=====#
+#===TYPES AND NAMING CONVENTIONS===#
 #all you need to know about input and output of instances
 struct NamingSpec #all fields are String, don't say I didn't warn you
     # e.g. sep="-", sSep="_"; $name_$size-$suff
     sep::String #to the right of last $sep is filename suffix, to the left is the instance name
     sSep::String
-    #read from ifDir, write to ofDir
+    # read from ifDir, write to ofDir
     ifDir::String
- #   ifDirAir::String
+ #  ifDirAir::String
     ofDir::String
     # what's after instance's name in its Initial Values file name
     fltInitSuff::String
@@ -41,6 +41,7 @@ const fn=NamingSpec("-","_"
     ,joinpath("..","data","by-tract")
     ,"tracts.dat","init.csv")
 
+#===OUTPUT===#
 function checkIfFilesExist(iname::String; ofdir=fn.ofDir)
     dir = readdir(ofdir)
     any(filename -> startswith(filename, iname), dir)
@@ -53,17 +54,14 @@ function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir=fn.ofDir
     writedlm(joinpath(ofdir,oftrv),A)
 end
 
+#===AIRPORTS===#
 #locating BTS and OpenFlights input files
 const APdir= joinpath("..","data","by-tract","air")::String
 #raw BTS data, with separate per-carrier flights
-global const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
+const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
 #raw OpenFlights AP data
-global const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
+const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 #TODO: consider wgetting from the original https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
-
- 
-#===AIRPORTS===#
-
 const apAllColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
 #reordered in the order of necessity; 3-letter IATA code as ID
 const apRetainedColNames=[:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
@@ -95,16 +93,13 @@ function rdBTS(ifName=ifBTS::String)
     return select(rawBTS,[:ORG,:DST,:PSG]) #
 end
 
-
-#======COMMUTER=====FLOW==================#
-#--AUX:--READ--CMT------#
+#===COMMUTER FLOW (*-wf-*.dat files)===#
 #show the wf names
 function lsWf(ins::NamingSpec = fn)
     filter(s::String -> startswith(s,"usa-wf-"),readdir(ins.ifDir))
 end
 
 ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf()) 
-
 
 #read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
 #if the tracts argument is provided, commutes referencing tracts that aren't in it
@@ -151,9 +146,7 @@ function scrubWfs(ns::DataFrame,wfs::DataFrame)
     return retwfs
 end
 
-
-
-#===FluTE======READ=&=PROCESS===FluTE===TRACTS=============#
+#===FluTE TRACTS (*-tracts.dat files)===#
 # sample usage: Oboe.lsTracts()[4] |> Oboe.rdFluteTract |> Oboe.aggBySte
 # a *node* (tract) must have the fields :Pop,:LAT,:LNG
 
@@ -187,37 +180,7 @@ function censorFluteTractByFIPS(tracts::DataFrame, fips::Vector{String})
     filter(row -> row.Ste ∈ fips, tracts)
 end
 
-#= Select an `id`-generating function
-0. if it's a census tract, just write $Ste~$Cty~$Tra
-1. if it's a county or a state, write as Integer to match `us-10m.json`
-2. if it's a Voronoi cell of an AP, write the AP's IATA_Code
-=#
-function select_mkid(nms::Array{String})
-    if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
-         return r-> join([r.Ste,r.Cty,r.Tra],"~")
-    elseif ["Ste","Cty"] ⊆ nms #node's a county, must accomodate `us-10m.json`
-         return r-> parse(Int,r.Ste*"000") + parse(Int,r.Cty)
-    elseif  ["Ste"] ⊆ nms #node's a state, must accomodate `us-10m.json`
-         return r-> parse(Int,r.Ste)
-     elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
-         return r -> r.IATA_Code
-     else
-        error("Nodes header not recognized. Can't generate an :id without FIPS or IATA_Code.")
-     end
- end
-
-#= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
-input MUST have [:I_i,:S_i]=#
-function infect!(ns::DataFrame)
-    if ns.I_i[1] == 0
-        ns[1,:S_i]-=1
-        ns[1,:I_i]+=1
-    end
-    return ns
-end
-
-#-----INITIAL---VALUES----------------------#
-
+#===EPIDEMIC SIMULATION AND INITIAL VALUES===#
 #=
 input MUST have [:Pop,:Name,:LAT,:LNG]
 input SHOULD have [:IATA_Code], if absent, inserted as "dummy"
@@ -237,6 +200,35 @@ function ns2iv_sterile(ns::DataFrame)
 end
 
 #quick delegate for the most common use case
-ns2iv(ns::DataFrame) = ns2iv_sterile(ns) |> infect! 
+ns2iv(ns::DataFrame) = ns2iv_sterile(ns) |> infect!
+
+#= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
+input MUST have [:I_i,:S_i]=#
+function infect!(ns::DataFrame)
+    if ns.I_i[1] == 0
+        ns[1,:S_i]-=1
+        ns[1,:I_i]+=1
+    end
+    return ns
+end
+
+#= Select an `id`-generating function
+0. if it's a census tract, just write $Ste~$Cty~$Tra
+1. if it's a county or a state, write as Integer to match `us-10m.json`
+2. if it's a Voronoi cell of an AP, write the AP's IATA_Code
+=#
+function select_mkid(nms::Array{String})
+    if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
+         return r-> join([r.Ste,r.Cty,r.Tra],"~")
+    elseif ["Ste","Cty"] ⊆ nms #node's a county, must accomodate `us-10m.json`
+         return r-> parse(Int,r.Ste*"000") + parse(Int,r.Cty)
+    elseif  ["Ste"] ⊆ nms #node's a state, must accomodate `us-10m.json`
+         return r-> parse(Int,r.Ste)
+    elseif ["IATA_Code"] ⊆ nms #node is Voronoi cell around an AP
+         return r -> r.IATA_Code
+    else
+        error("Nodes header not recognized. Can't generate an :id without FIPS or IATA_Code.")
+    end
+end
 
 end

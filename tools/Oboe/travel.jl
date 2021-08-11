@@ -11,22 +11,7 @@ using FromFile
 export mkCmtMx,
        mkPsgMx
 
-#=return wfs excluding the commutes for tracts not present in `ns`
-ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
-=#
-function scrubWfs(ns::DataFrame,wfs::DataFrame)
-    allCmtTracts = (wfs.ORG |> unique) ∪ (wfs.DST |> unique)
-     #these tracts are not present in FluTE's `us-tracts.dat`
-    notPresent = setdiff(allCmtTracts,ns.Name)
-    retwfs = filter(r -> r.ORG ∉ notPresent && r.DST ∉ notPresent,eachrow(wfs))
-    return retwfs
-end
-
-
-
 #--------COMMUTER---FLOW---MATRIX--------------#
-
-
 function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
         error("Wrong DF! Terminating.")
@@ -47,7 +32,6 @@ NB! now a method for partition-to-partition commute
 `ns` MUST have [:Name]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
 partition is reversed by a helper function, hence the need for `ns` and `pns` to have :Name
 =#
-
 function mkCmtMx(ns::DataFrame,pns::DataFrame,prt::Dict,wfs::DataFrame)
     if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
         error("Wrong DF! Terminating.")
@@ -118,9 +102,7 @@ function mkPsgMx(ns::DataFrame,
     insertcols!(ns, :partindex => partIndexByNode)
     #group the nodes into subDFs by their designated airport
     groupedbyAP = groupby(ns, :IATA_Code)
-    # numAPs = length(groupedbyAP)
-    #from this, get list of IATA codes of unique airports that have nodes assigned
-    # retAPs = ns.IATA_Code |> unique
+
     #initialize output matrix
     outM = fill(0.0, (dim,dim))
     computePsgFlows!(outM, retAPs, fmx, groupedbyAP, accumulate=aggregated)
@@ -192,6 +174,5 @@ end
 function psg(fromshr, toshr, totalflow)
     fromshr * toshr * totalflow
 end
-
 
 end

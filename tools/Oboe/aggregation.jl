@@ -12,8 +12,6 @@ export aggByCty,
        partByAP,
        partBySte
 
-#--------AGGREGATE---TRACT-LIKE---DATA--------------#
-
  #NB! :Name is a String
  function select_mkName(nms::Array{String})
     if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
