@@ -5,7 +5,7 @@ module Travel
 using DataFrames
 using FromFile
 
-@from "airports.jl" using Airports: mkFlightMx2, grpBTS
+@from "airports.jl" using Airports: FlightMx
 @from "aggregation.jl" using Aggregation: revexplPart
 
 export mkCmtMx,
@@ -62,18 +62,15 @@ end
 #   obtained by summing the flows from and to each node in the corresponding
 #   partitions of `prt`.
 function mkPsgMx(ns::DataFrame,
+                 fmx::FlightMx,
                  pns::Union{DataFrame,Nothing}=nothing,
                  prt::Union{Dict, Nothing}=nothing;
                  force_recompute::Bool=false)
-    #first and foremost get the list of all APs present in ns... 
-    retAPs = ns.IATA_Code |> unique
-    #...then get the daily AP-to-AP flows for the designated APs, with IATA_Code as index
-    fmx = mkFlightMx2(grpBTS(),retAPs; daily=true)
-    #determine if we're dealing with aggregated data
+    #first determine if we're dealing with aggregated data
     if pns !== nothing && prt !== nothing
         aggregated = true
         #assuming force_recompute is disabled, try to detect by-AP aggregation..
-        if !force_recompute && "IATA_Code" ∈ names(pns) && pns.IATA_Code == sort(retAPs)
+        if !force_recompute && "IATA_Code" ∈ names(pns) && pns.IATA_Code == fmx.apCodes
             #...and if it is, just return the by-AP travel matrix
             println("By-AP aggregation engaged. Using AP-to-AP travel matrix directly.")
             return fmx.M
@@ -102,7 +99,8 @@ function mkPsgMx(ns::DataFrame,
     insertcols!(ns, :partindex => partIndexByNode)
     #group the nodes into subDFs by their designated airport
     groupedbyAP = groupby(ns, :IATA_Code)
-
+    #get the list of airports in the order they appear in `ns`
+    retAPs = ns.IATA_Code |> unique
     #initialize output matrix
     outM = fill(0.0, (dim,dim))
     computePsgFlows!(outM, retAPs, fmx, groupedbyAP, accumulate=aggregated)
@@ -123,7 +121,7 @@ end
 #has only a single node.
 @inline function computePsgFlows!(outM::Matrix{Float64},
                                   retAPs::AbstractArray{String},
-                                  fmx::NamedTuple,
+                                  fmx::FlightMx,
                                   groupedByAP::GroupedDataFrame;
                                   accumulate::Bool=true)
     numAPs = length(retAPs)

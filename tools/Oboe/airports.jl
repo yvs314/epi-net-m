@@ -6,9 +6,17 @@ using DataFrames
 using FromFile
 @from "./io.jl" using IO: rdAPs, rdBTS
 
-export grpBTS,
+export FlightMx,
+       grpBTS,
        mkFlightMx2,
        censorAggFlows
+
+struct FlightMx
+    M::Matrix{Float64}
+    ix::Dict{String, Int}
+    xi::Dict{Int, String}
+    apCodes::Vector{String}
+end
 
 #===BTS FLIGHT DATA PROCESSING===#
 #=
@@ -94,7 +102,7 @@ function mkFlightMx2(fs::DataFrame, iretAPs::Array{String};
     end
 
     outM = daily ? map(x -> x/365,M_) : M_ #annual-to-daily, if requested
-    return (M=outM, ix = ix_, xi = xi_,apCodes = retAPs)
+    return FlightMx(outM, ix_, xi_, retAPs)
 end
 
 #===LINKING BTS DATA WITH OPENFLIGHTS===#

@@ -57,7 +57,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     end
     nsRaw |> myshow
     #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
-    pBTS = Oboe.grpBTS() 
+    pBTS = Oboe.grpBTS()
     #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
     APs = Oboe.censorAggFlows()
     #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
@@ -68,6 +68,9 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     ns2 = Oboe.assignPsgShares(ns,d)
     ns2 |> myshow
 
+    #generate matrix of AP-to-AP flights with aux. arrays mapping indices to IATA codes
+    fmx = Oboe.mkFlightMx2(pBTS, ns2.IATA_Code |> unique; daily=true)
+    #generate commute table
     cmt = Oboe.rdTidyWfsByFIPS(fips, ns2)
     cmt |> myshow
 
@@ -88,7 +91,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     end
 
     @time cmtMx = skipagg ? Oboe.mkCmtMx(ns2, cmt) : Oboe.mkCmtMx(ns2, aggregated, partitioned, cmt)
-    @time psgMx = skipagg ? Oboe.mkPsgMx(ns2)      : Oboe.mkPsgMx(ns2, aggregated, partitioned)
+    @time psgMx = skipagg ? Oboe.mkPsgMx(ns2, fmx) : Oboe.mkPsgMx(ns2, fmx, aggregated, partitioned)
     iv          = skipagg ? Oboe.ns2iv(ns2)        : Oboe.ns2iv(aggregated)
 
 
