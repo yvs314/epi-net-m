@@ -35,11 +35,13 @@ module Oboe
 using FromFile
 
 const callsign = "This is Oboe v.1.0" * begin
-    branch = readchomp(`sh -c "git branch --show-current 2> /dev/null || echo master"`)
-    if branch == "master"
+    #display the name of the current branch after the version if it's not master
+    #useful for debugging/notebooks/etc
+    try
+        branch = readchomp(`git branch --show-current`)
+        branch == "master" ? "" : "-" * branch
+    catch err
         ""
-    else
-        "-" * branch
     end
 end
 
