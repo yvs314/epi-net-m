@@ -1,5 +1,5 @@
 """
-This module is responsible for producing the commute and air travel matrices.
+Submodule responsible for producing the commute and air travel matrices.
 """
 module Travel
 using DataFrames
@@ -12,6 +12,11 @@ export mkCmtMx,
        mkPsgMx
 
 #--------COMMUTER---FLOW---MATRIX--------------#
+"""
+Calculate the commuter flow in both directions for all node pairs in `ns`,
+given the commute table `wfs`. Returns a matrix `M` such that 
+`M[i1][i2]` is the total commuter flow from `ns[i1]` to `ns[i2].`
+"""
 function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
         error("Wrong DF! Terminating.")
@@ -27,11 +32,16 @@ function mkCmtMx(ns::DataFrame,wfs::DataFrame)
     return outM
 end
 
-#=
-NB! now a method for partition-to-partition commute
-`ns` MUST have [:Name]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
-partition is reversed by a helper function, hence the need for `ns` and `pns` to have :Name
-=#
+"""
+NB! `ns` MUST have [:Name]; `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+Partition is reversed by a helper function, hence the need for `ns` and `pns` to have :Name.
+
+Calculate the commuter flow in both directions for all node pairs in `ns`,
+given the commute table `wfs`. Returns a matrix `M` such that 
+`M[i1][i2]` is the total commuter flow from `pns[i1]` to `pns[i2]`,
+obtained by summing the flows from and to each node in the corresponding
+partitions of `prt`.
+"""
 function mkCmtMx(ns::DataFrame,pns::DataFrame,prt::Dict,wfs::DataFrame)
     if "Name" ∉ names(ns) || !(["ORG","DST","CMT"] ⊆ names(wfs))
         error("Wrong DF! Terminating.")
@@ -51,16 +61,21 @@ end
 
 #------AIR---PASSENGER---FLOW---MATRIX----------------------#
 
-#NB! `ns`:[:ID,:Pop,:IATA_Code,:shr]
-#NB! if provided, `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
-#    mkPsgMx(ns[, pns, prt][, force_recompute=true|false])
-#Calculates the air passenger flow in both directions for all node pairs in `ns`.
-# - If `pns` and `prt` are not provided, returns a matrix `M` such that 
-#   `M[i1][i2]` is the total air travel flow from `ns[i1]` to `ns[i2]`
-# - If `pns` and `prt` are provided, returns a matrix `M` such that 
-#   `M[i1][i2]` is the total air travel flow from `pns[i1]` to `pns[i2]`,
-#   obtained by summing the flows from and to each node in the corresponding
-#   partitions of `prt`.
+"""
+NB! `ns`:[:ID,:Pop,:IATA_Code,:shr]
+NB! if provided, `pns` MUST have [:Name]; `prt` :Name => [ns_row_indices]
+
+   mkPsgMx(ns, fmx[, pns, prt][, force_recompute=true|false])
+
+Calculate the air passenger flow in both directions for all node pairs in `ns`,
+given the flight matrix `fmx`.
+- If `pns` and `prt` are not provided, returns a matrix `M` such that 
+  `M[i1][i2]` is the total air travel flow from `ns[i1]` to `ns[i2]`
+- If `pns` and `prt` are provided, returns a matrix `M` such that 
+  `M[i1][i2]` is the total air travel flow from `pns[i1]` to `pns[i2]`,
+  obtained by summing the flows from and to each node in the corresponding
+  partitions of `prt`.
+"""
 function mkPsgMx(ns::DataFrame,
                  fmx::FlightMx,
                  pns::Union{DataFrame,Nothing}=nothing,
@@ -109,16 +124,18 @@ function mkPsgMx(ns::DataFrame,
 end
 
 
-#For each combination (i.e. unordered pair with distinct entries)
-#of groups in `groupedByAP`, and for each node pair within these combinations,
-#calculates the passenger flows for that pair and accumulates them in `outM`
-#at a location determined by the `partindex` column.
-#So M[i1, i2] is the total passenger flow from all nodes that have the `partindex` i1
-#to all nodes that have the `partindex` i2.
-#
-#If `accumulate` is `false`, values in `outM` will be overwritten rather than accumulated,
-#which is useful for saving on memory accesses in the trivial case where each partition
-#has only a single node.
+"""
+For each combination (i.e. unordered pair with distinct entries)
+of groups in `groupedByAP`, and for each node pair within these combinations,
+calculate the passenger flows for that pair and accumulate them in `outM`
+at a location determined by the `partindex` column.
+So M[i1, i2] is the total passenger flow from all nodes that have the `partindex` i1
+to all nodes that have the `partindex` i2.
+
+If `accumulate` is `false`, values in `outM` will be overwritten rather than accumulated,
+which is useful for saving on memory accesses in the trivial case where each partition
+has only a single node.
+"""
 @inline function computePsgFlows!(outM::Matrix{Float64},
                                   retAPs::AbstractArray{String},
                                   fmx::FlightMx,
@@ -169,6 +186,11 @@ end
     end
 end
 
+"""
+Approximate passenger flow between two nodes, given both passenger shares
+(`fromshr` and `toshr`) and the passenger flow between the corresponding
+designated airports (`totalflow`)
+"""
 function psg(fromshr, toshr, totalflow)
     fromshr * toshr * totalflow
 end

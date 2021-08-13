@@ -1,5 +1,5 @@
 """
-This module is responsible for grouping and aggregating tracts to various levels.
+Submodule responsible for grouping and aggregating tracts to various levels.
 """
 module Aggregation
 using DataFrames
@@ -13,6 +13,7 @@ export aggByCty,
        partBySte
 
  #NB! :Name is a String
+ """Return a name-generating function for partitions based on the column names `nms`"""
  function select_mkName(nms::Array{String})
     if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
          return r-> join([r.Ste,r.Cty,r.Tra],"~")
@@ -27,11 +28,11 @@ export aggByCty,
      end
  end
 
-#= by-state PRE-aggregation,
-with dumb Euclidean centroid for geographical coordinates
-Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
-TODO: put the by--end output into a variable and add post-processing (adding the ID)
-=#
+"""
+By-state PRE-aggregation with dumb Euclidean centroid for geographical coordinates.
+Input: a FluTE \$name-tracts.dat, a la `[:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]``
+"""
+#TODO: put the by--end output into a variable and add post-processing (adding the ID)
 function aggBySte(idf::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste]) #group by U.S. State FIPS
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
@@ -40,10 +41,10 @@ function aggBySte(idf::DataFrame;make_names=true)
     end
 end
 
-#= by-county PRE-aggregation,
-with dumb Euclidean centroid for geographical coordinates
-Input: a FluTE $name-tracts.dat, a la [:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]
-=#
+""" 
+By-county PRE-aggregation with dumb Euclidean centroid for geographical coordinates.
+Input: a FluTE \$name-tracts.dat, a la `[:Ste,:Cty,:Tra,:Pop,:LAT,:LNG]`
+"""
 function aggByCty(idf::DataFrame;make_names=true)
     gd = groupby(idf,[:Ste,:Cty]) #group by U.S. County FIPS, within the same State FIPS 
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
@@ -52,10 +53,10 @@ function aggByCty(idf::DataFrame;make_names=true)
     end
 end
 
-#= by-AP (:IATA_Code) PRE-aggregation,
-with dumb Euclidean centroid for geographical coordinates
-Input: a FluTE $name-tracts.dat WITH dsg AP, a la [:Name,:IATA_Code,:Pop,:LAT,:LNG]
-=#
+"""
+By-airport (`:IATA_Code`) PRE-aggregation, with dumb Euclidean centroid for geographical coordinates.
+Input: a FluTE \$name-tracts.dat WITH dsg AP, a la `[:Name,:IATA_Code,:Pop,:LAT,:LNG]`
+"""
 function aggByAP(idf::DataFrame;make_names=true)
     gd = groupby(idf,[:IATA_Code]) #group by the tract's dsg AP :IATA_Code 
     out = combine(gd, :Pop => sum, :LAT => mean, :LNG => mean, renamecols = false)
@@ -66,6 +67,7 @@ function aggByAP(idf::DataFrame;make_names=true)
 end
 
 #---AUX::---PARTITION---AND---REVERSE------------------------#
+"""Map county names in `pns` to lists of node indices in `ns`."""
 function partByCty(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==split(x,"~")[1] && 
                         ns.Cty[ri]==split(x,"~")[2],
@@ -73,28 +75,38 @@ function partByCty(ns::DataFrame,pns::DataFrame)
 end
 
 #consider a unified approach to partBySte and partByAP;
+"""Map state names in `pns` to lists of node indices in `ns`."""
 function partBySte(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.Ste[ri]==x, 1:nrow(ns)) for x ∈ pns.Ste |> unique)
 end
 
+"""Map IATA codes in `pns` to lists of node indices in `ns`."""
 function partByAP(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.IATA_Code[ri]==x, 1:nrow(ns)) for x ∈ pns.IATA_Code |> unique)
 end
 
-#part:: Name1 => [ns_row_indices],
-#out:: ns_row_index => Name1 
+"""
+Reverse-explode a `dict` as returned by `partBy...`, i.e. map indices to their
+corresponding parition name.
+"""
 function revexplPart(dict::Dict)
     ( v => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end
 
-#like above but also restore the Names of entries
-# ns MUST have [:Name]
+"""
+Reverse-explode a `dict` as returned by `partBy...` and map node names to their
+corresponding parition name.
+ns MUST have [:Name]
+"""
 function revexplPart(dict::Dict, ns::DataFrame)
     ( ns.Name[v] => k  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end
 
-#like above but also map the keys' names to `indices`
-# ns MUST have [:Name]; ix:: Name => partition_index
+"""
+Reverse-explode a `dict` as returned by `partBy...` and map node names to their
+corresponding parition *index*.
+ns MUST have [:Name]; ix:: Name => partition_index
+"""
 function revexplPart(dict::Dict, ns::DataFrame,ix::Dict)
     ( ns.Name[v] => ix[k]  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
 end

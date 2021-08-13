@@ -1,5 +1,5 @@
 """
-This module is responsible for handling input and output, i.e.
+Submodule responsible for handling input and output, i.e.
 reading tract and travel data from disk and outputting travel matrices.
 """
 module IO
@@ -20,7 +20,7 @@ using DataFrames
 using CSV,DelimitedFiles
 
 #===TYPES AND NAMING CONVENTIONS===#
-#all you need to know about input and output of instances
+"""Data type for holding paths and naming conventions for I/O"""
 struct NamingSpec #all fields are String, don't say I didn't warn you
     # e.g. sep="-", sSep="_"; $name_$size-$suff
     sep::String #to the right of last $sep is filename suffix, to the left is the instance name
@@ -42,11 +42,13 @@ const fn=NamingSpec("-","_"
     ,"tracts.dat","init.csv")
 
 #===OUTPUT===#
+"""Return `true` if there are files whose names start with `iname` in `odfir`."""
 function checkIfFilesExist(iname::String; ofdir=fn.ofDir)
     dir = readdir(ofdir)
     any(filename -> startswith(filename, iname), dir)
 end
 
+"""Save the initial values table `ivs` and the travel matrix `A` to `ofdir`."""
 function writeMe(iname::String,ivs::DataFrame,A::Array{Float64,2};ofdir=fn.ofDir)
     ofivs= join([iname,nrow(ivs)],"_") * "-init.csv"
     oftrv= join([iname,nrow(ivs)],"_") * "-trav.dat"
@@ -65,13 +67,13 @@ const ifAPs=joinpath(APdir,"Openflights airports.dat")::String
 const apAllColNames = [:ID,:Name,:City,:Country,:IATA_Code,:ICAO_Code,:LAT,:LNG,:Altitude,:Timezone,:Daylight_Savings,:TZ,:Type,:Source]
 #reordered in the order of necessity; 3-letter IATA code as ID
 const apRetainedColNames=[:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
-#=
-read the OpenFlights.org's airports.dat, and retain only the columns
-I feel I may use; put :IATA_Code,:LAT,:LNG first,
-these are definitely useful
-CAVEAT: some missing values in :City, some weird values in :Country
-TODO: resolve this caveat
-=#
+
+"""
+Read the OpenFlights.org's airports.dat, and retain only the columns
+that will be used; put :IATA_Code,:LAT,:LNG first, these are definitely useful.
+"""
+#CAVEAT: some missing values in :City, some weird values in :Country
+#TODO: resolve this caveat
 function rdAPs(ifName=ifAPs::String)
     out=CSV.File(ifName,header=false) |> DataFrame
     rename!(out, apAllColNames)
@@ -80,8 +82,10 @@ function rdAPs(ifName=ifAPs::String)
 end
 
 #---READ---BTS--FLIGHTS-------------------------#
-#=read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST
-#set the columns to [:ORG,:DST,:PSG] for uniformity=#
+"""
+Read the BTS file, and retain only :1 Passengers, :5 ORIGIN, and :7 DEST;
+set the columns to [:ORG,:DST,:PSG] for uniformity.
+"""
 function rdBTS(ifName=ifBTS::String)
     rawBTS = select(CSV.read(ifName,DataFrame), :1,:5,:7)
     if map( x -> floor(x)==x, rawBTS[:,1]) |> all #if :PSG are Integer
@@ -94,16 +98,18 @@ function rdBTS(ifName=ifBTS::String)
 end
 
 #===COMMUTER FLOW (*-wf-*.dat files)===#
-#show the wf names
+"""List the `-wf-` filenames found in `ins.ifDir`, default to `fn`"""
 function lsWf(ins::NamingSpec = fn)
     filter(s::String -> startswith(s,"usa-wf-"),readdir(ins.ifDir))
 end
 
 ls_fipsAll = map(s -> split(split(s,".")[1],"-")[3] |> string,lsWf()) 
 
-#read & tidy all "usa-wf-$fips.dat" for $fips in fipss; default to NW: Oregon + Washington
-#if the tracts argument is provided, commutes referencing tracts that aren't in it
-#will be discarded
+"""
+Read and tidy all "usa-wf-\$fips.dat" for \$fips in fipss; default to NW: Oregon + Washington.
+If the tracts argument is provided, commutes referencing tracts that aren't in it
+will be discarded.
+"""
 function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=DataFrame(),
      ins::NamingSpec=fn)
     #generate FluTE filename by State's FIPS
@@ -135,9 +141,10 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=D
     return wfs5
 end
 
-#=return wfs excluding the commutes for tracts not present in `ns`
-ns MUST have [:Name]; wfs MUST have [:ORG,:DST,:CMT]
-=#
+"""
+Return `wfs` excluding the commutes for tracts not present in `ns`.
+`ns` MUST have [:Name]; `wfs` MUST have [:ORG,:DST,:CMT]
+"""
 function scrubWfs(ns::DataFrame,wfs::DataFrame)
     allCmtTracts = (wfs.ORG |> unique) ∪ (wfs.DST |> unique)
      #these tracts are not present in FluTE's `us-tracts.dat`
@@ -150,15 +157,15 @@ end
 # sample usage: Oboe.lsTracts()[4] |> Oboe.rdFluteTract |> Oboe.aggBySte
 # a *node* (tract) must have the fields :Pop,:LAT,:LNG
 
-#show the FluTE's tract filenames found in ins.ifDir, default to fn
+"""List the FluTE's tract filenames found in `ins.ifDir`, default to `fn`"""
 function lsTracts(ins::NamingSpec = fn)
     filter(s::String -> endswith(s,ins.fltInitSuff),readdir(ins.ifDir))
 end
 
-#= load a FluTE census tract info into a DataFrame,
-setting the types and colnames 
+"""
+Load a FluTE census tract info into a `DataFrame`, setting the types and colnames.
 Default to NW tracts (Oregon + Washington)
-=#
+"""
 function rdFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~NW"),lsTracts())],
             ins::NamingSpec=fn)
     idf=CSV.File(joinpath(ins.ifDir,ifName)
@@ -169,23 +176,24 @@ function rdFluteTract(ifName::String=lsTracts()[findfirst(s -> startswith(s,"a~N
     return idf
 end
 
-# read the FluTE's all-US-by-tract instance (usa-tracts.dat)
+"""Read the FluTE's all-US-by-tract instance (`usa-tracts.dat`)"""
 function rdWholeUS(ins::NamingSpec=fn)
     ifName = filter(s -> split(s,"-")[1]=="usa",lsTracts(ins) )[1]
     rdFluteTract(ifName,ins)
 end
 
-# given a DataFrame of tracts, remove those that aren't from the given states
+"""Given a `DataFrame` of tracts, remove those that are not from the given states."""
 function censorFluteTractByFIPS(tracts::DataFrame, fips::Vector{String})
     filter(row -> row.Ste ∈ fips, tracts)
 end
 
 #===EPIDEMIC SIMULATION AND INITIAL VALUES===#
-#=
+"""
 input MUST have [:Pop,:Name,:LAT,:LNG]
 input SHOULD have [:IATA_Code], if absent, inserted as "dummy"
-out spec: [:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG]
-=#
+Initialize a `DataFrame` for SIR with the columns 
+`[:id,:IATA_Code,:N_i,:S_i,:I_i,:R_i,:Name,:LAT,:LNG]`
+"""
 function ns2iv_sterile(ns::DataFrame)
     out = copy(ns)
     rename!(out, :Pop => :N_i) 
@@ -200,10 +208,13 @@ function ns2iv_sterile(ns::DataFrame)
 end
 
 #quick delegate for the most common use case
+"""Initialize a `DataFrame` for SIR and infect the first node."""
 ns2iv(ns::DataFrame) = ns2iv_sterile(ns) |> infect!
 
-#= if the first node is sterile (I_i), seed it with 1 infected (Hi, I'm _idempotent_!)
-input MUST have [:I_i,:S_i]=#
+"""
+If the first node is sterile (`I_i`), seed it with 1 infected (Hi, I'm _idempotent_!)
+input MUST have `[:I_i,:S_i]`
+"""
 function infect!(ns::DataFrame)
     if ns.I_i[1] == 0
         ns[1,:S_i]-=1
@@ -212,11 +223,12 @@ function infect!(ns::DataFrame)
     return ns
 end
 
-#= Select an `id`-generating function
-0. if it's a census tract, just write $Ste~$Cty~$Tra
+"""
+Select an `id`-generating function
+0. if it's a census tract, just write \$Ste~\$Cty~\$Tra
 1. if it's a county or a state, write as Integer to match `us-10m.json`
 2. if it's a Voronoi cell of an AP, write the AP's IATA_Code
-=#
+"""
 function select_mkid(nms::Array{String})
     if ["Ste","Cty","Tra"] ⊆ nms #node's a census tract
          return r-> join([r.Ste,r.Cty,r.Tra],"~")
