@@ -4,12 +4,15 @@ Submodule responsible for preprocessing airport and flight data.
 module Airports
 using DataFrames
 using FromFile
-@from "./io.jl" using IO: rdAPs, rdBTS
 
 export FlightMx,
        grpBTS,
        mkFlightMx2,
-       censorAggFlows
+       dropSmallAPs,
+       getProcessedAPs
+
+"""The minimum number of annual boardings for airports to be counted."""
+const minAnnualBoardings = 2500
 
 """
 Data type that describes passenger flows between all airports
@@ -32,7 +35,7 @@ Sum the passengers on the flights with same (ORG,DST) pairs,
 sort lexicographically in (ORG,DST) order
 and output the air travel graph as a *list of edges*.
 """
-function grpBTS(idf=rdBTS()::DataFrame)
+function grpBTS(idf::DataFrame)
     gd = groupby(idf,[:ORG,:DST])
     out  = combine(gd,:PSG => sum, renamecols = false)
     sort!(out,[:ORG,:DST]) #sort by departure/arrival AP names
@@ -45,7 +48,7 @@ with :IN=Σ_incoming PSG, :OUT=Σ_outgoing,:TOUR=Σ_(:ORG=:DST)
 in :IN and :OUT sums, `missing` is non-absorbing and the diagonal is omitted.
 (opt) :TTL=:IN+:OUT.
 """
-function mkAggFlows2(apCodes::Array{String}=mkFlightMx2().apCodes, M=mkFlightMx2().M::Matrix)
+function mkAggFlows2(apCodes::Array{String}, M::Matrix{Float64})
     out=DataFrame(IATA_Code=apCodes
 #col-wise total sans the reflexive, `missing` if the arrivals are only reflexive
     ,IN=[ (sum(M[:,j]) == M[j,j]) ? missing : (sum(M[:,j]) - M[j,j]) for j ∈ 1:size(M)[2] ]
@@ -53,27 +56,15 @@ function mkAggFlows2(apCodes::Array{String}=mkFlightMx2().apCodes, M=mkFlightMx2
     ,OUT=[ (sum(M[i,:]) == M[i,i]) ? missing : (sum(M[i,:]) - M[i,i]) for i ∈ 1:size(M)[1] ]
 #no. reflexive travelers, or `missing`
     ,TOUR=[M[i,i] for i ∈ 1:size(M)[1]] )#just the reflexive travelers
-return out
+    return out
 end
-
-#TBD: enplanement is just OUT, so maybe not sum it with in.
-#TBD: rename to dropSmallAPs
-"""Only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)"""
-function censorAggFlows(p=2500::Number,idf=pickCleanAPs()::DataFrame)
-    if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
-    filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
-end
-
-"""Throw out the APs with missing IN or OUT enplanements"""
-scrubAPs(APs=mkAggFlows2()::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
-,eachrow(APs)) |> DataFrame
 
 #===CONSTRUCTING THE FLIGHT MATRIX===#
 """
 Transform a *list of arcs* into *adjacency matrix*.
 input: DF must have [:ORG,:DST,:PSG] cols
 """
-function mkFlightMx2(fs=grpBTS()::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
+function mkFlightMx2(fs::DataFrame; daily=false::Bool,babble=false::Bool, init_to=0.0::Number)
     #make a sorted list of ALL the APs in `fs`
     allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
     #delegate to the method with EXPLICIT ground set (`iretAPs`); with retaintours = true
@@ -119,12 +110,11 @@ end
 
 #===LINKING BTS DATA WITH OPENFLIGHTS===#
 #=====BTS=<-->=OPENFLIGHTS=======#
-
 """
 Pick just the given APs (by IATA_Code) from all in dfAPinfo and
 output columns as [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
 """
-function pickAPs(myAPs=mkAggFlows2()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
+function pickAPs(myAPs::DataFrame, dfAPinfo::DataFrame)
     out= innerjoin(myAPs, dfAPinfo,on=:IATA_Code)
     select!(out,[:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country])
 end
@@ -135,8 +125,34 @@ CAVEAT: doesn't retain any APs that have :IN or:OUT missing or 0;
 recall that 0 was identified with `missing` in mkAggFlows()=
 Also remove missings from the :IN and :OUT.
 """
-function pickCleanAPs(myAPs=mkAggFlows2()::DataFrame, dfAPinfo=rdAPs()::DataFrame)
+function pickCleanAPs(myAPs::DataFrame, dfAPinfo::DataFrame)
     pickAPs(myAPs,dfAPinfo) |> scrubAPs
+end
+
+"""Throw out the APs with missing IN or OUT enplanements"""
+scrubAPs(APs::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.IN)
+,eachrow(APs)) |> DataFrame
+
+#TBD: enplanement is just OUT, so maybe not sum it with in.
+"""Only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)"""
+function dropSmallAPs(idf::DataFrame, p=minAnnualBoardings::Number)
+    if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
+    filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
+end
+
+"""
+Given flight data `pBTS` and raw airport data `rawAPs`, calculate AP in- and outflows
+and get rid of the APs with missing data or less than `minAnnualBoardings` annual passengers.
+Input:
+`pBTS`: [:ORG, :DST]
+`rawAPs`: [:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
+Output: [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
+"""
+function getProcessedAPs(pBTS::DataFrame, rawAPs::DataFrame)
+    fmx = mkFlightMx2(pBTS)
+    aggFlows = mkAggFlows2(fmx.apCodes, fmx.M)
+    cleanAPs = pickCleanAPs(aggFlows, rawAPs)
+    dropSmallAPs(cleanAPs)
 end
 
 end

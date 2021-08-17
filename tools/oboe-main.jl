@@ -56,10 +56,15 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
         nsRaw = Oboe.censorFluteTractByFIPS(wholeUS, fips)
     end
     nsRaw |> myshow
+
+    #read flight (BTS) and airport (APs) data
+    rawBTS = Oboe.rdBTS()
+    rawAPs = Oboe.rdAPs()
+
     #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
-    pBTS = Oboe.grpBTS()
+    pBTS = Oboe.grpBTS(rawBTS)
     #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
-    APs = Oboe.censorAggFlows()
+    APs = Oboe.getProcessedAPs(pBTS, rawAPs)
     #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
     ns = Oboe.assignDsgAPs(nsRaw,APs)
     #now find the :Pop of each APs' catchment area, and chuck that into a `Dict`
