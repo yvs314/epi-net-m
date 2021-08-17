@@ -37,7 +37,7 @@ return the *nearest* AP's :IATA_Code and the distance :dst to it in km
 """
 #NB: worked slow-ish in Jupyter Notebook; might rework without sorting all this thing.
 #UPD: this slow-down was probably due to lack of caching with arguments by default
-function getDsgAP(node::DataFrameRow,APs=censorAggFlows()::DataFrame)
+function getDsgAP(node::DataFrameRow,APs::DataFrame)
     alle=[(dst = myDist((node.LAT,node.LNG)
             ,(ap.LAT,ap.LNG))
             ,IATA_Code = ap.IATA_Code
@@ -51,7 +51,7 @@ Assign a designated AP to each node in `nodes`, return a DF with info on both no
 their designated APs, `[:ID,:Pop,:LAT,:LNG,:IATA_Code]`; `:IATA_Code` for the designated AP
 dbg columns: `:dst` distance to the dsg AP, `:psg` = `:IN` + `:OUT` passengers through `dsg_AP`
 """
-function assignDsgAPs(nodes::DataFrame,APs=censorAggFlows()::DataFrame)
+function assignDsgAPs(nodes::DataFrame,APs::DataFrame)
     dsgAPs = map(n -> getDsgAP(n,APs).dsg,eachrow(nodes)) |> DataFrame
     hcat(nodes,dsgAPs)
 end
@@ -80,8 +80,8 @@ end
 GLEaM-like aggregation: lump together all nodes in AP's catchment area (start with *census tracts*)
 difference with GLEaM: some airports may get lost, whereas GLEaM starts with APs (gotta re-check that!)
 """
-function aggByAPs()
-    return assignDsgAPs(rdFluteTract()) |> mkClusterPops
+function aggByAPs(tracts::DataFrame, APs::DataFrame)
+    return assignDsgAPs(tracts, APs) |> mkClusterPops
 end
 
 """
