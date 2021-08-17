@@ -1,6 +1,12 @@
 """
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
+
 Submodule responsible for handling input and output, i.e.
 reading tract and travel data from disk and outputting travel matrices.
+
+io.jl
+2021-08-13 v.0.1: First modular version
 """
 module IO
 

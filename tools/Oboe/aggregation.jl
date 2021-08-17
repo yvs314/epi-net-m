@@ -1,5 +1,11 @@
 """
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
+
 Submodule responsible for grouping and aggregating tracts to various levels.
+
+aggregation.jl
+2021-08-13 v.0.1: First modular version
 """
 module Aggregation
 using DataFrames

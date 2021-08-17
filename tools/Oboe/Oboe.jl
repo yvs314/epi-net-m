@@ -30,11 +30,13 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-07-14   v.0.A.1: add checkIfFilesExist and censorFluteTractByFIPS
 '21-07-19   v.1.0: fixed issue where unmatched tract IDs led to a crash
 '21-08-10   v.1.1: significantly improved performance of mkPsgMx
+'21-08-17   v.2.0: separated functionality into submodules;
+                   API changes to reduce coupling between submodules
 """
 module Oboe
 using FromFile
 
-const callsign = "This is Oboe v.1.0" * begin
+const callsign = "This is Oboe v.2.0" * begin
     #display the name of the current branch after the version if it's not master
     #useful for debugging/notebooks/etc
     try

@@ -1,6 +1,13 @@
 """
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
+          
 Submodule responsible for preprocessing tract data, i.e.
 linking tracts with corresponding flight data. 
+
+tracts.jl
+2021-08-13 v.0.1: First modular version
+2021-08-17 v.0.2: Removed dependency on io.jl by getting rid of default args
 """
 module Tracts
 using DataFrames

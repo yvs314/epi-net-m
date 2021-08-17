@@ -18,6 +18,7 @@ oboe-main.jl
 2021-04-14  v.0.8 Added support for tract datasets other than NW and checking 
                   if the output already exists
 2021-07-19  v.1.0: fixed issue where unmatched tract IDs led to a crash
+2021-08-17  v.1.1: updated to support the new API of Oboe.jl and FromFile module import
 """
 
 module OboeMain

@@ -1,5 +1,13 @@
 """
+Authors: Yaroslav Salii, 2020+
+         Kara Ignatenko, 2021
+
 Submodule responsible for preprocessing airport and flight data.
+
+airports.jl
+2021-08-13 v.0.1: First modular version
+2021-08-17 v.0.2: Removed dependency on io.jl, created new func getProcessedAPs
+                  to make the control flow explicit rather than rely on default arguments
 """
 module Airports
 using DataFrames
