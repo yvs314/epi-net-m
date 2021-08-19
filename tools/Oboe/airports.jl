@@ -8,6 +8,7 @@ airports.jl
 2021-08-13 v.0.1: First modular version
 2021-08-17 v.0.2: Removed dependency on io.jl, created new func getProcessedAPs
                   to make the control flow explicit rather than rely on default arguments
+2021-08-19 v.0.3: Made min_annual_boardings an optional kwarg for getProcessedAPs 
 """
 module Airports
 using DataFrames
@@ -20,7 +21,7 @@ export FlightMx,
        getProcessedAPs
 
 """The minimum number of annual boardings for airports to be counted."""
-const minAnnualBoardings = 2500
+const defaultMinAnnualBoardings = 2500
 
 """
 Data type that describes passenger flows between all airports
@@ -143,24 +144,24 @@ scrubAPs(APs::DataFrame) = filter(row -> !ismissing(row.OUT) && !ismissing(row.I
 
 #TBD: enplanement is just OUT, so maybe not sum it with in.
 """Only retain the APs with at least `p` annual enplanements (sum :IN and :OUT)"""
-function dropSmallAPs(idf::DataFrame, p=minAnnualBoardings::Number)
+function dropSmallAPs(idf::DataFrame, p=defaultMinAnnualBoardings::Number)
     if (["IN","OUT"] ⊈ names(idf)) error("wrong DF") end
     filter(row -> row.IN+row.OUT ≥ p, eachrow(idf)) |> DataFrame
 end
 
 """
 Given flight data `pBTS` and raw airport data `rawAPs`, calculate AP in- and outflows
-and get rid of the APs with missing data or less than `minAnnualBoardings` annual passengers.
+and get rid of the APs with missing data or less than `min_annual_boardings` annual passengers.
 Input:
 `pBTS`: [:ORG, :DST]
 `rawAPs`: [:IATA_Code,:LAT,:LNG,:Name,:City,:Country]
 Output: [:IATA_Code,:LAT,:LNG,:IN,:OUT,:TOUR,:Name,:City,:Country]
 """
-function getProcessedAPs(pBTS::DataFrame, rawAPs::DataFrame)
+function getProcessedAPs(pBTS::DataFrame, rawAPs::DataFrame; min_annual_boardings=defaultMinAnnualBoardings)
     fmx = mkFlightMx2(pBTS)
     aggFlows = mkAggFlows2(fmx.apCodes, fmx.M)
     cleanAPs = pickCleanAPs(aggFlows, rawAPs)
-    dropSmallAPs(cleanAPs)
+    dropSmallAPs(cleanAPs, min_annual_boardings)
 end
 
 end
