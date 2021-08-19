@@ -11,12 +11,12 @@ oboe-cli.jl
 2021-07-10  v.0.0 Initial version
 2021-07-14  v.0.1 Added support for --force
 2021-07-15  v.0.1.1 YS: clarify help and validation error text
+2021-08-12  v.0.2: updated to use FromFile-style module import
 """
 
+using FromFile 
 using ArgParse
-# using OboeMain
-include("oboe-main.jl") # I'm still not entirely sure how packages work in Julia
-                        # so using include for now --Kara
+@from "oboe-main.jl" import OboeMain
 
 #initialize CLI argument parsing
 s = ArgParseSettings()

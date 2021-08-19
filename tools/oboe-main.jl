@@ -18,6 +18,7 @@ oboe-main.jl
 2021-04-14  v.0.8 Added support for tract datasets other than NW and checking 
                   if the output already exists
 2021-07-19  v.1.0: fixed issue where unmatched tract IDs led to a crash
+2021-08-17  v.1.1: updated to support the new API of Oboe.jl and FromFile module import
 """
 
 module OboeMain
@@ -28,11 +29,12 @@ fipsAll =  ["01", "04", "05", "06", "08", "09", "10", "11", "12", "13", "16", "1
             "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "44", "45",
             "46", "47", "48", "49", "50", "51", "53", "54", "55", "56"]
 
-#here's a crutch to load from current path;
-#TODO: make a package
-push!(LOAD_PATH,pwd())
-using Oboe
+
+using FromFile
 using ArgParse
+@from "./Oboe/Oboe.jl" import Oboe
+
+export processOboe
 
 println(Oboe.callsign)
 
@@ -55,10 +57,16 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
         nsRaw = Oboe.censorFluteTractByFIPS(wholeUS, fips)
     end
     nsRaw |> myshow
+
+    #read flight data from BTS
+    rawBTS = Oboe.rdBTS()
+    #read Openflights.org airport data: [:IATA_Code,:LAT,:LNG,:Name]
+    rawAPs = Oboe.rdAPs()
+
     #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
-    pBTS = Oboe.grpBTS() 
+    pBTS = Oboe.grpBTS(rawBTS)
     #cache the smallest reasonable APs, [:IATA_Code,:LAT,:LNG,:IN.+:OUT ≥ 2500] 
-    APs = Oboe.censorAggFlows()
+    APs = Oboe.getProcessedAPs(pBTS, rawAPs)
     #to each node, assign a designated AP from `APs` -> +[:IATA_Code]
     ns = Oboe.assignDsgAPs(nsRaw,APs)
     #now find the :Pop of each APs' catchment area, and chuck that into a `Dict`
@@ -67,6 +75,9 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     ns2 = Oboe.assignPsgShares(ns,d)
     ns2 |> myshow
 
+    #generate matrix of AP-to-AP flights with aux. arrays mapping indices to IATA codes
+    fmx = Oboe.mkFlightMx2(pBTS, ns2.IATA_Code |> unique; daily=true)
+    #generate commute table
     cmt = Oboe.rdTidyWfsByFIPS(fips, ns2)
     cmt |> myshow
 
@@ -87,7 +98,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     end
 
     @time cmtMx = skipagg ? Oboe.mkCmtMx(ns2, cmt) : Oboe.mkCmtMx(ns2, aggregated, partitioned, cmt)
-    @time psgMx = skipagg ? Oboe.mkPsgMx(ns2)      : Oboe.mkPsgMx(ns2, aggregated, partitioned)
+    @time psgMx = skipagg ? Oboe.mkPsgMx(ns2, fmx) : Oboe.mkPsgMx(ns2, fmx, aggregated, partitioned)
     iv          = skipagg ? Oboe.ns2iv(ns2)        : Oboe.ns2iv(aggregated)
 
 
