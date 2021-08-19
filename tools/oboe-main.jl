@@ -58,8 +58,9 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     end
     nsRaw |> myshow
 
-    #read flight (BTS) and airport (APs) data
+    #read flight data from BTS
     rawBTS = Oboe.rdBTS()
+    #read Openflights.org airport data: [:IATA_Code,:LAT,:LNG,:Name]
     rawAPs = Oboe.rdAPs()
 
     #all AP-AP travel, as list o'pairs [:ORG,:DST,:PSG], :ORG and :DST are :IATA_Code
