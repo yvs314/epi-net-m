@@ -43,6 +43,9 @@ Run the data processing routine from `/tools` as follows:
 
     # process NY, NJ and CT, aggregate by county, force overwrite
     julia oboe-cli.jl --fips 09 34 36 --agg cty --name TRI --force
+
+    # process entire contiguous US, aggregate by state
+    julia oboe-cli.jl --fips ALL --agg ste --name USA
 ---
 ## Usage: Numerics
 
