@@ -46,6 +46,20 @@ Run the data processing routine from `/tools` as follows:
 
     # process entire contiguous US, aggregate by state
     julia oboe-cli.jl --fips ALL --agg ste --name USA
+
+### Julia API
+
+To access the Oboe API from within Julia, execute the following:
+
+```julia
+using FromFile
+@from "(path to)/Oboe/Oboe.jl" import Oboe
+```
+- If running from a Julia file or Jupyter notebook, the path should be relative to the location of said file.
+- If running from a REPL, the path should be relative to the working directory of the REPL. In particular, when using VS Code's "execute in REPL" functionality, the working directory is set to the project root, so the path should be `./tools/Oboe/Oboe.jl`
+
+This should bring every API function into the `Oboe` namespace, e.g. `Oboe.mkPsgMx`.
+
 ---
 ## Usage: Numerics
 

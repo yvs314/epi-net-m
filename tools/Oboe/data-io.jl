@@ -5,10 +5,14 @@ Authors: Yaroslav Salii, 2020+
 Submodule responsible for handling input and output, i.e.
 reading tract and travel data from disk and outputting travel matrices.
 
-io.jl
+data-io.jl
 2021-08-13 v.0.1: First modular version
+2021-08-24 v.0.2: Made the I/O directory path independent of the working dir;
+                  added select_mkid to export
+2021-08-24 v.0.3: renamed IO to DataIO to avoid confusion with any builtin
+2021-08-24 v.0.4: added heuristic to determine project root
 """
-module IO
+module DataIO
 
 export fn,
        writeMe,
@@ -19,11 +23,18 @@ export fn,
        rdFluteTract,
        rdWholeUS,
        censorFluteTractByFIPS,
-       ns2iv
+       ns2iv,
+       select_mkid
 
 using DataFrames
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
 using CSV,DelimitedFiles
+
+#find the project root by searching for `epi-net-m` in this file's path
+#then obtain the absolute path of the `data` subdirectory
+thisPath = splitpath(@__DIR__)
+projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
+const dataDir = joinpath(projRoot..., "data")
 
 #===TYPES AND NAMING CONVENTIONS===#
 """Data type for holding paths and naming conventions for I/O"""
@@ -43,8 +54,8 @@ end
 #the naming conventions I am going to use
 #as well as input and output directories
 const fn=NamingSpec("-","_"
-    ,joinpath("..","data","by-tract","flute")
-    ,joinpath("..","data","by-tract")
+    ,joinpath(dataDir,"by-tract","flute")
+    ,joinpath(dataDir,"by-tract")
     ,"tracts.dat","init.csv")
 
 #===OUTPUT===#
@@ -64,7 +75,7 @@ end
 
 #===AIRPORTS===#
 #locating BTS and OpenFlights input files
-const APdir= joinpath("..","data","by-tract","air")::String
+const APdir= joinpath(dataDir,"by-tract","air")::String
 #raw BTS data, with separate per-carrier flights
 const ifBTS=joinpath(APdir,"2019 BTS domestic.csv")::String
 #raw OpenFlights AP data
