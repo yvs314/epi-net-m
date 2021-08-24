@@ -5,12 +5,13 @@ Authors: Yaroslav Salii, 2020+
 Submodule responsible for handling input and output, i.e.
 reading tract and travel data from disk and outputting travel matrices.
 
-io.jl
+data-io.jl
 2021-08-13 v.0.1: First modular version
 2021-08-24 v.0.2: Made the I/O directory path independent of the working dir;
                   added select_mkid to export
+2021-08-24 v.0.3: renamed IO to DataIO to avoid confusion with any builtin
 """
-module IO
+module DataIO
 
 export fn,
        writeMe,

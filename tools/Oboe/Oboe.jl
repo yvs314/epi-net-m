@@ -32,6 +32,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 '21-08-10   v.1.1: significantly improved performance of mkPsgMx
 '21-08-17   v.2.0: separated functionality into submodules;
                    API changes to reduce coupling between submodules
+'21-08-24   v.2.0.1: renamed io.jl to data-io.jl, no external API change
 """
 module Oboe
 using FromFile
@@ -47,7 +48,7 @@ const callsign = "This is Oboe v.2.0" * begin
     end
 end
 
-@from "io.jl"          using IO
+@from "data-io.jl"     using DataIO
 @from "airports.jl"    using Airports
 @from "tracts.jl"      using Tracts
 @from "aggregation.jl" using Aggregation
