@@ -37,7 +37,7 @@ Oboe.jl v.0.1: "From scripts to proper code" edition
 module Oboe
 using FromFile
 
-const callsign = "This is Oboe v.2.0" * begin
+const callsign = "This is Oboe v.2.0.1" * begin
     #display the name of the current branch after the version if it's not master
     #useful for debugging/notebooks/etc
     try
