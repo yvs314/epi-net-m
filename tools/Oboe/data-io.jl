@@ -10,6 +10,7 @@ data-io.jl
 2021-08-24 v.0.2: Made the I/O directory path independent of the working dir;
                   added select_mkid to export
 2021-08-24 v.0.3: renamed IO to DataIO to avoid confusion with any builtin
+2021-08-24 v.0.4: added heuristic to determine project root
 """
 module DataIO
 
@@ -29,8 +30,11 @@ using DataFrames
 #CSV: IO FluTE & my, DelimitedFiles: writing the matrices (.dat)
 using CSV,DelimitedFiles
 
-#define a project root to serve as the reference point for any FS operation
-const dataDir = joinpath(@__DIR__, "..", "..", "data") |> realpath
+#find the project root by searching for `epi-net-m` in this file's path
+#then obtain the absolute path of the `data` subdirectory
+thisPath = splitpath(@__DIR__)
+projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
+const dataDir = joinpath(projRoot..., "data")
 
 #===TYPES AND NAMING CONVENTIONS===#
 """Data type for holding paths and naming conventions for I/O"""
