@@ -1,6 +1,7 @@
 """
 A VegaLite.jl-based plotting routine, 
 written for line-by-line execution through Julia-in-VS-Code
+
 This one is for _a priori_ figures: 
 (a) census tracts with designated APs and state boundaries (b) county populations
 
@@ -20,28 +21,27 @@ using FromFile, DataFrames, CSV, Statistics, Revise
 #====PREP==THE==DATA=================#
 
 #rawBTS = Oboe.rdBTS()
+=======
+2021-08-23 v.0.0 can draw APs, states, and census tracts
+"""
 
-#println(Oboe.callsign)
+using VegaLite,VegaDatasets
+using DataFrames, CSV, Statistics, Revise
 
-fips=["41","53"]
+pwd()
 
-nsRaw = Oboe.censorFluteTractByFIPS(Oboe.rdWholeUS(), fips)
+include("./Oboe/Oboe.jl")
 
-APs = Oboe.getProcessedAPs(Oboe.rdBTS() |> Oboe.grpBTS, Oboe.rdAPs())
-
-ns = Oboe.assignDsgAPs(nsRaw,APs)
-
-#cheapest way of filtering for _relevant_ county IDs in plots
-ctys = Oboe.aggByCty(ns)
-insertcols!(ctys,1,:id => 
-    map(r-> parse(Int,r.Ste*"000") + parse(Int,r.Cty),eachrow(ctys)) )
+rawBTS = Oboe.rdBTS()
 
 dsgAPcodes = ns.IATA_Code |> unique
 
 dsgAPs = filter(r -> r.IATA_Code ∈ dsgAPcodes,eachrow(APs)) |> DataFrame
 
 #====PLOT==TRACTS==APs==COUNTIES===========#
+
 #load the US 1:10^6 GeoJSON shapes
+
 us10m = dataset("us-10m")
 
 pltCanvasSte = @vlplot(
@@ -175,3 +175,4 @@ pltP = @vlplot() + pltPopCty + pltBoundarySte
 
 pwd() |> print
 save("../fig/NWctyPop2.pdf",pltP)
+
