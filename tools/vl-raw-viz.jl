@@ -20,19 +20,18 @@ using FromFile, DataFrames, CSV, Statistics, Revise
 
 #====PREP==THE==DATA=================#
 
-#rawBTS = Oboe.rdBTS()
-=======
-2021-08-23 v.0.0 can draw APs, states, and census tracts
-"""
+fips = ["41","53"]
 
-using VegaLite,VegaDatasets
-using DataFrames, CSV, Statistics, Revise
+nsRaw = Oboe.censorFluteTractByFIPS(Oboe.rdWholeUS(), fips)
 
-pwd()
+APs = Oboe.getProcessedAPs(Oboe.rdBTS() |> Oboe.grpBTS, Oboe.rdAPs())
 
-include("./Oboe/Oboe.jl")
+ns = Oboe.assignDsgAPs(nsRaw,APs)
 
-rawBTS = Oboe.rdBTS()
+#cheapest way of filtering for _relevant_ county IDs in plots
+ctys = Oboe.aggByCty(ns)
+insertcols!(ctys,1,:id => 
+    map(r-> parse(Int,r.Ste*"000") + parse(Int,r.Cty),eachrow(ctys)) )
 
 dsgAPcodes = ns.IATA_Code |> unique
 
