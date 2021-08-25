@@ -103,8 +103,14 @@ boundlax = false;
 %boundlax = true; %enforce lax is within bounds
 %% Problem Instance (initial values, populations, and travel matrix)
 %inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
-%inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
+%inst="NWap_23"; %by-airport OR + WS, with filghts & commute
+%inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+
+%inst="WCtra_9110"; %WCT is CA + OR + WS
+%inst="WCcty_133";
+%inst="WCap_52";
+%inst="WCste_3";
 
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
