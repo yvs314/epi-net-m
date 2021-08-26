@@ -1,9 +1,0 @@
-AP_ID,AP_code,N_i,S_i,I_i,R_i,City_name
-1,ATL,420003,420002,1,0,Atlanta
-2,BOS,617594,617594,0,0,Boston
-3,CLT,731424,731424,0,0,Charlotte
-4,DEN,600158,600158,0,0,Denver
-5,DFW,1197816,1197816,0,0,Dallas
-6,DTW,713777,713777,0,0,Detroit
-7,EWR,277140,277140,0,0,Newark
-8,FLL,306289,306289,0,0,Fort Lauderdale+Hollywood (Florida)
