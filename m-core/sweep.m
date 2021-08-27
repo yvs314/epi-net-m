@@ -255,10 +255,6 @@ fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ...
 
 
 
-if(J / JNull > 1)
-    error("Didn't improve over initial guess. Terminating.");
-end
-
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
 sNull = xNull(1:n,:); zNull = xNull(n+1:end,:); rNull = (1 - sNull - zNull);
@@ -272,6 +268,10 @@ a1 = @(c) A1(c) / sum(N);
 s11 = a1(s); z11 = a1(z); r11 = a1(r); 
 s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
 avgOut = [z01; z11; sum(u) / n]; %[total zNull; total z; avg u]
+
+if(J / JNull > 1)
+    error("Didn't improve over initial guess. Terminating.");
+end
 
 %% Tabular output
 cns = [arrayfun( @(n) 's'+string(n),0:T) ...
