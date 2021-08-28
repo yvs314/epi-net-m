@@ -102,15 +102,15 @@ laxmax=1000; laxmin = -laxmax;
 boundlax = false;
 %boundlax = true; %enforce lax is within bounds
 %% Problem Instance (initial values, populations, and travel matrix)
-%inst="a~NW~tra_2072"; %by-tract OR + WS, with flights & commute
-inst="a~NW~cty_75"; %by-county OR + WS, with flights & commute
-%inst="NWap_23"; %by-airport OR + WS, with filghts & commute
-%inst="a~NW~ste_2"; %by-state OR + WS, with flights & commute
+%inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
+%inst="NWcty_75"; %by-county OR + WS, with flights & commute
+inst="NWap_23"; %by-airport OR + WS, with filghts & commute
+%inst="NWste_2"; %by-state OR + WS, with flights & commute
 
-%inst="WCtra_9110"; %WCT is CA + OR + WS
-%inst="WCcty_133";
-%inst="WCap_52";
-%inst="WCste_3";
+%inst="WCTtra_9110"; %WCT is CA + OR + WS
+%inst="WCTcty_133";
+%inst="WCTap_52";
+%inst="WCTste_3";
 
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
@@ -155,7 +155,7 @@ u = zeros(n,T+1); %initial guess: constant zero
 ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 
 %MISC
-delta = 0.001; %min. relative error for norms of u,x,lax in stopping conditions
+delta = 1E-3; %min. relative error for norms of u,x,lax in stopping conditions
 stop_u = false; stop_x = false; stop_lax = false;%ensure the loop is entered
 ct = 0; %set the loop counter
 
@@ -249,15 +249,11 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
 end %next sweep iteration
 toc
 %% Evaluating the sweep results
-fprintf('\n J / JNull = %4.4f\n',J / JNull);
+fprintf('\n J / JNull = %4.4f   improved by %4.4f\n',J / JNull, 1 - J/JNull);
 fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
     ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
 
 
-
-if(J / JNull > 1)
-    error("Didn't improve over initial guess. Terminating.");
-end
 
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
@@ -272,6 +268,10 @@ a1 = @(c) A1(c) / sum(N);
 s11 = a1(s); z11 = a1(z); r11 = a1(r); 
 s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
 avgOut = [z01; z11; sum(u) / n]; %[total zNull; total z; avg u]
+
+if(J / JNull > 1)
+    error("Didn't improve over initial guess. Terminating.");
+end
 
 %% Tabular output
 cns = [arrayfun( @(n) 's'+string(n),0:T) ...
