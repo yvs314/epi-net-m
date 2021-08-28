@@ -104,8 +104,8 @@ boundlax = false;
 %% Problem Instance (initial values, populations, and travel matrix)
 %inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
 %inst="NWcty_75"; %by-county OR + WS, with flights & commute
-%inst="NWap_23"; %by-airport OR + WS, with filghts & commute
-inst="NWste_2"; %by-state OR + WS, with flights & commute
+inst="NWap_23"; %by-airport OR + WS, with filghts & commute
+%inst="NWste_2"; %by-state OR + WS, with flights & commute
 
 %inst="WCTtra_9110"; %WCT is CA + OR + WS
 %inst="WCTcty_133";
@@ -155,7 +155,7 @@ u = zeros(n,T+1); %initial guess: constant zero
 ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 
 %MISC
-delta = 0.001; %min. relative error for norms of u,x,lax in stopping conditions
+delta = 1E-3; %min. relative error for norms of u,x,lax in stopping conditions
 stop_u = false; stop_x = false; stop_lax = false;%ensure the loop is entered
 ct = 0; %set the loop counter
 
@@ -249,7 +249,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
 end %next sweep iteration
 toc
 %% Evaluating the sweep results
-fprintf('\n J / JNull = %4.4f\n',J / JNull);
+fprintf('\n J / JNull = %4.4f   improved by %4.4f\n',J / JNull, 1 - J/JNull);
 fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
     ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
 
