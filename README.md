@@ -7,7 +7,7 @@ outputs a `<name>-trav.dat` matrix containing the total daily travellers between
 and a `<name>-init.csv` table containing the initial values for the SIR model.
 
 The **Numerics** is found in `/m-core` and written in Matlab. It uses the _forward-backward sweep_ method to solve a _two-point boundary value problem_ (TPBVP) for a network SIR model instantiated with `<name>-trav.dat` and `<name>-init.csv`. The entry point is `/m-core/sweep.m`. 
-A Julia version is 🚧 under construction 🚧
+🚧 A Julia version is under construction 🚧
 
 CAVEAT: all data and notebooks are stored with [Git LFS](https://git-lfs.github.com/). If after cloning the repository or downloading its contents, instead of expected file content, you see something like this
 ```
@@ -77,11 +77,16 @@ Two sets of `.csv` are produced, giving each simulation _day_'s population of ea
 
 #### Compatibility notes
 
-Requires **MATLAB R2019** due to reliance on `tiledlayout` for handling subplots
+Requires at least **MATLAB R2019** due to reliance on `tiledlayout` for handling subplots
 
 --- 
-## License
+## Acknowledgements
 
-The data set and benchmark instances are licensed under GPL v.3.0 since they are in part derived from the [FluTE](https://github.com/dlchao/FluTE) data under the same license. 
+The data set and benchmark instances are in part derived from the [FluTE](https://github.com/dlchao/FluTE) data, coupled with U.S. domestic carrier air travel data from [U.S. Bureau of Transportation Statistics](https://www.transtats.bts.gov/) and airport information from [Openflights repository](https://github.com/jpatokal/openflights). 
 
-🚧 Picking an open license for the code and making this repository public is under construction 🚧
+**Yaroslav Salii** @yvs314 is the principal author, who designed the original version of the Oboe data processing routine and the MATLAB implementation of the [Forward-Backward Sweep](https://github.com/yvs314/epi-net-m/blob/8584d09125a2250032ff8300365daa92fe3941e4/m-core/sweep.m) numerical solution method for Network Metapopulation SIR Epidemic Model with Social-Distancing Optimal Control.
+
+**Kara Ignatenko** @karaign implemented the Oboe command-line interface, significantly improved the performance of air travel network generator [mkPsgMx](https://github.com/yvs314/epi-net-m/blob/8584d09125a2250032ff8300365daa92fe3941e4/tools/Oboe/travel.jl), and implemented the [FromFile.jl](https://github.com/Roger-luo/FromFile.jl)-based modular version of the Oboe data processing routine.
+
+**Rinel Foguen Tchuendom** and **Shuang Gao** @sigmagao contributed an early version of the [Euler method solver](https://github.com/yvs314/epi-net-m/blob/8584d09125a2250032ff8300365daa92fe3941e4/m-core/old-eulerkron.m) for Network Metapopulation SIR Epidemic Model in Kronecker product notation.
+
