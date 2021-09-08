@@ -23,11 +23,26 @@ oboe-main.jl
 
 module OboeMain
 
-#The FIPS codes for each of the contiguous US states (and DC)
+"The FIPS codes for each of the contiguous US states (and DC)"
 fipsAll =  ["01", "04", "05", "06", "08", "09", "10", "11", "12", "13", "16", "17", "18",
             "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
             "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "44", "45",
             "46", "47", "48", "49", "50", "51", "53", "54", "55", "56"]
+
+"Wash. + Ore, 2072 tracts"
+fipsNW = ["41","53"]
+
+"NW's first neighbors except Cal., 2834 tracts"
+fipsNW1 = ["16","32","41","53"]
+
+"NW's 1st and 2nd neighbors except Cal., 4830 tracts, 259 ctys"
+fipsNW2 = ["04","16","30","32","41","49","53","56"]
+
+"Cal., 7038 tracts, 58 ctys"
+fipsCA = ["06"]
+
+"West Coast, Cal. + Ore. + Wash., 9910 tracts, 133 ctys"
+fipsWCT= ["06","41","53"]
 
 
 using FromFile
@@ -40,6 +55,9 @@ println(Oboe.callsign)
 
 #lame logging thing
 myshow = obj -> println(first(obj,5))
+
+"blueprint for getProcessedAPs() method "
+#Oboe.getProcessedAPs(Oboe.rdBTS() |> Oboe.grpBTS,Oboe.rdAPs())
 
 function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     #construct the output file name and make sure the files don't already exist
