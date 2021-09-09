@@ -11,6 +11,7 @@ data-io.jl
                   added select_mkid to export
 2021-08-24 v.0.3: renamed IO to DataIO to avoid confusion with any builtin
 2021-08-24 v.0.4: added heuristic to determine project root
+2021-09-08 v.0.5: add infect2! to try to infect tract 41~001~950100 or thereabouts
 """
 module DataIO
 
@@ -24,6 +25,8 @@ export fn,
        rdWholeUS,
        censorFluteTractByFIPS,
        ns2iv,
+       ns2iv_sterile,
+       infect2!,
        select_mkid
 
 using DataFrames
@@ -229,7 +232,7 @@ end
 ns2iv(ns::DataFrame) = ns2iv_sterile(ns) |> infect!
 
 """
-If the first node is sterile (`I_i`), seed it with 1 infected (Hi, I'm _idempotent_!)
+If the first node is sterile (`_I_i[1]==0`), seed it with 1 infected (Hi, I'm _idempotent_!)
 input MUST have `[:I_i,:S_i]`
 """
 function infect!(ns::DataFrame)
@@ -239,6 +242,23 @@ function infect!(ns::DataFrame)
     end
     return ns
 end
+
+"""
+Try to infect tract 41~001~950100 or what's nearest to it in view of aggregation:
+if aggregated to airports, try ALW
+if not, try state 41 or county 41001, or tract "41~001~950001"
+"""
+function infect2!(ns::DataFrame;aggType::String)
+    tryTargetIx = findfirst(r -> r.id == dispatchTargetNodeID(aggType),eachrow(ns))
+    targetIx = isnothing(tryTargetIx) ? 1 : tryTargetIx #infect node 1 if target not found
+    if ns.I_i[targetIx] == 0 
+        ns.S_i[targetIx] -= 1
+        ns.I_i[targetIx] += 1
+    end
+    return ns
+end
+
+#---AUX---INITIAL--VALUES--GENERATION-------------#
 
 """
 Select an `id`-generating function
@@ -260,4 +280,19 @@ function select_mkid(nms::Array{String})
     end
 end
 
+"Match target node ID by aggregation type"
+function dispatchTargetNodeID(agg::String)
+    if agg == "tra"
+        return "41~001~950100"
+    elseif agg == "cty"
+        return 41001
+    elseif agg == "ap"
+        return "ALW"
+    elseif agg == "ste"
+        return 41
+    else
+        error("Unknown aggregation requested. Terminating.\n")
+    end
 end
+
+end #end module Oboe.DataIO
