@@ -29,18 +29,31 @@ begin
 end
 
 # ╔═╡ e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
-md"# Solution visualizer
-Instructions will go here."
+md"""
+# Solution visualizer
+Instructions will go here.
+"""
 
 # ╔═╡ 0d909765-a87d-4a3c-bb9f-ff80e463992a
 #TODO: file selector based on the contents of /out
-md"""
-Enter solution name, e.g. `NWcty_75`: $(@bind slnName TextField(default="NWcty_75"))
-"""
+begin
+	#get the list of csv files in ../out
+	outDir = readdir(iDir)
+	csvs = filter(endswith(".csv"), outDir)
+	#get the list of unique solution names (prefixes)
+	solNames = map(fname -> split(fname, "-")[1], csvs) |> unique
+	
+	#create a <select> to pick from the prefixes 
+	picker = @bind slnName Select(solNames)
+	
+	md"""
+	Select solution: $(picker)
+	"""
+end
 
 # ╔═╡ ced90367-407c-4b67-8276-68edc17933d3
 """read the solutions into dataframes and stuff them into a named tuple """
-function rdSolutions(;iName = slnName, slnDir = iDir )
+function rdSolutions(iName, slnDir)
     slnSuffs = ["-frac.csv","-frac0.csv","-abs.csv","-abs0.csv"]
     slns= map( p -> CSV.read(p,DataFrame), (joinpath(iDir,slnName * suff) for suff in slnSuffs))
     return NamedTuple([:f,:f0,:a,:a0] .=> slns) 
@@ -48,7 +61,7 @@ end
 
 # ╔═╡ 6a2ca31f-716c-48f4-8e1a-70e3c033358b
 try
-	ss = rdSolutions()
+	ss = rdSolutions(slnName, iDir)
 	
 	global a0Median = ss.a0.Z180 |> median
 	global a0Max = ss.a0.Z180 |> maximum
@@ -720,11 +733,11 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
-# ╟─e598c897-61bf-4bc2-91db-e225362f5606
-# ╟─0d909765-a87d-4a3c-bb9f-ff80e463992a
-# ╟─ced90367-407c-4b67-8276-68edc17933d3
-# ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
+# ╠═e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+# ╠═e598c897-61bf-4bc2-91db-e225362f5606
+# ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
+# ╠═ced90367-407c-4b67-8276-68edc17933d3
+# ╠═6a2ca31f-716c-48f4-8e1a-70e3c033358b
 # ╠═4fcd14d1-8dbb-41bd-97e9-21e480c608af
 # ╟─a5a90845-c80e-4570-9612-b5cb169ba082
 # ╟─c3f20db0-452e-4d06-be6d-c8a4b18771ce
