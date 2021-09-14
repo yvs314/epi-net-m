@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.15.1
+# v0.16.0
 
 using Markdown
 using InteractiveUtils
@@ -84,9 +84,68 @@ function day2col(day::Int)
 	"Z" * string(day)
 end
 
-# ╔═╡ a5a90845-c80e-4570-9612-b5cb169ba082
-md"""
-$(@bind day Slider(0:180))
+# ╔═╡ dcabd381-1316-449b-9ebf-68410ee6e3fd
+@bind day html"""
+<div id="day-picker">
+	<button id="first-btn"> first </button>
+	<button id="prev-btn"> prev </button>
+	<input  id="curr-day"/>
+	<button id="next-btn"> next </button>
+	<button id="last-btn"> last </button>
+
+	<script>
+		const div = currentScript.parentElement;
+		const inputField = div.querySelector("#curr-day");
+	
+		let currentVal = 0;
+		// min and max day allowed
+		const MIN = 0;
+		const MAX = 180;
+
+		function updateValue(newVal) {
+			div.value = newVal;
+			div.dispatchEvent(new CustomEvent("input"));
+		}
+
+		function updateTextbox(newVal) {
+			inputField.value = newVal;
+		}
+
+		updateValue(currentVal);
+		updateTextbox(currentVal);
+
+		// update value only when Return is pressed or focus is lost
+		inputField.addEventListener("change", e => {
+			const newVal = parseInt(e.target.value);
+
+			// undo the change if new number out of range or if invalid
+			if (newVal < MIN || newVal > MAX || isNaN(newVal)) {
+				updateTextbox();
+				return;
+			}
+			currentVal = newVal;
+			updateTextbox(newVal);
+			updateValue(newVal);
+		});
+
+		/*** buttons ***/
+
+		["#first-btn", "#prev-btn", "#next-btn", "#last-btn"].forEach((s, i) => {
+			div.querySelector(s).addEventListener("click", e => {
+				currentVal = i == 0 ? MIN :
+						     i == 1 ? currentVal - 1 :
+							 i == 2 ? currentVal + 1 :
+									  MAX;
+
+
+				updateTextbox(currentVal);
+				updateValue(currentVal);
+			});
+		});
+		
+
+	</script>
+</div>
 """
 
 # ╔═╡ c3f20db0-452e-4d06-be6d-c8a4b18771ce
@@ -733,14 +792,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+# ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═e598c897-61bf-4bc2-91db-e225362f5606
 # ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
-# ╠═ced90367-407c-4b67-8276-68edc17933d3
-# ╠═6a2ca31f-716c-48f4-8e1a-70e3c033358b
-# ╠═4fcd14d1-8dbb-41bd-97e9-21e480c608af
-# ╟─a5a90845-c80e-4570-9612-b5cb169ba082
+# ╟─ced90367-407c-4b67-8276-68edc17933d3
+# ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
+# ╟─4fcd14d1-8dbb-41bd-97e9-21e480c608af
 # ╟─c3f20db0-452e-4d06-be6d-c8a4b18771ce
+# ╟─dcabd381-1316-449b-9ebf-68410ee6e3fd
 # ╠═e08e040a-1982-4250-8a5f-a37e7c2377d0
 # ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
 # ╟─00000000-0000-0000-0000-000000000001
