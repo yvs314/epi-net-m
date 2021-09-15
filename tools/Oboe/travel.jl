@@ -6,10 +6,12 @@ Submodule responsible for producing the commute and air travel matrices.
 
 travel.jl
 2021-08-13 v.0.1: First modular version
+2021-09-11 v.0.1.1 restore `talkDnsy` auxiliary function
 """
 module Travel
 using DataFrames
 using FromFile
+using Statistics,LinearAlgebra #for talkDnsy()
 
 @from "airports.jl" using Airports: FlightMx
 @from "aggregation.jl" using Aggregation: revexplPart
@@ -201,4 +203,24 @@ function psg(fromshr, toshr, totalflow)
     fromshr * toshr * totalflow
 end
 
+"""
+Display (`println`) sparsity-related statistics for commute matrices.
+Computes the input's `density`, the fraction of nonzero elements assuming
+the diagonal may only have zeros, and also the minimum, median, and maximum
+**nonzero** element of the matrix.
+"""
+function talkDnsy(M)
+    dim = size(M,1)
+    if ! (filter(x -> x > 0.0, diag(M)) |> isempty)
+        println(stderr,"Warning: nonzero diagonal elements found.")
+    end 
+    #nonzero entries
+    nzs = filter(x -> x > 0.0, M); a= nzs |> length;
+    dnsy = a/ dim^2; b = dim*(dim-1) #b is max no. nonzero elements (all 'cept diag)
+    println("We've got ",a," ≠0 connections")
+    println("With at most ",b, " ≠0 entries, we get the density ",dnsy)
+    print("min ", nzs |> minimum, "   median ", nzs |> median, "   max ", nzs |> maximum)
+    return(nnonzero = a, maxnonzero= b, density = dnsy, dim = size(M,1))
 end
+
+end #end module Oboe.Travel
