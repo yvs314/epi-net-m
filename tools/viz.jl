@@ -18,7 +18,7 @@ end
 begin
 	using VegaLite,VegaDatasets
 	using FromFile, DataFrames, CSV, Statistics, Revise
-	using PlutoUI
+	using PlutoUI, HypertextLiteral
 	
 	thisPath = splitpath(@__DIR__)
 	projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
@@ -159,36 +159,61 @@ pltZ = @vlplot(
 	repeat={column=[day2col(day), day2col(day)*"_NULL"]},
 ) + 
 @vlplot(
-    :geoshape,
-    data={
-        values=us10m,
-        format={
-            type=:topojson,
-            feature=:counties
-        }
-    },
-    transform=[{
-        lookup=:id,
-        from={
-            data=select(sol, ["id", day2col(day), day2col(day)*"_NULL"]), #INSERT DF HERE
-            key=:id,
+	:geoshape,
+	data={
+		values=us10m,
+		format={
+			type=:topojson,
+			feature=:counties
+		}
+	},
+	transform=[{
+		lookup=:id,
+		from={
+			data=select(sol, ["id", day2col(day), day2col(day)*"_NULL"]), #INSERT DF HERE
+			key=:id,
 			fields=[day2col(day), day2col(day)*"_NULL"]
-        }
-    }],
-    projection={
-        type=:albersUsa
-    },
-    encoding={
-        color={
-            field={repeat=:column},
-            type=:quantitative,
-            scale={
-                domainMid= a0Median, #median no. infected
-                scheme=:reds
+		}
+	}],
+	projection={
+		type=:albersUsa
+	},
+	encoding={
+		color={
+			field={repeat=:column},
+			type=:quantitative,
+			scale={
+				domainMid= a0Median, #median no. infected
+				scheme=:reds
 			}
-        }
-    }
-)
+		}
+	}
+); nothing # prevents Pluto from trying to render the plot
+
+# ╔═╡ 336824ad-b89f-4bbb-9f5c-68048dd646c7
+begin
+	json = sprint(VegaLite.our_json_print, pltZ)
+	
+	@htl("""
+		<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+
+		<div id="vis"></div>
+
+		<script>
+			console.log(typeof $json);
+			const spec = JSON.parse($json);
+		
+			vegaEmbed("#vis", spec)
+				// result.view provides access to the Vega View API
+			  .then(result => console.log(result))
+			  .catch(console.warn);
+		</script>
+
+		""")
+	
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -196,6 +221,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 FromFile = "ff7dd447-1dcb-4ce3-b8ac-22a812192de7"
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -206,6 +232,7 @@ VegaLite = "112f6efa-9a02-5b7d-90c0-432ed331239a"
 CSV = "~0.8.5"
 DataFrames = "~1.2.2"
 FromFile = "~0.1.1"
+HypertextLiteral = "~0.9.0"
 PlutoUI = "~0.7.9"
 Revise = "~3.1.19"
 VegaDatasets = "~2.1.1"
@@ -378,6 +405,11 @@ deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
 git-tree-sha1 = "c7ec02c4c6a039a98a15f955462cd7aea5df4508"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 version = "0.8.19"
+
+[[HypertextLiteral]]
+git-tree-sha1 = "72053798e1be56026b81d4e2682dbe58922e5ec9"
+uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "0.9.0"
 
 [[IniFile]]
 deps = ["Test"]
@@ -798,9 +830,10 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─ced90367-407c-4b67-8276-68edc17933d3
 # ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
 # ╟─4fcd14d1-8dbb-41bd-97e9-21e480c608af
-# ╟─c3f20db0-452e-4d06-be6d-c8a4b18771ce
+# ╠═c3f20db0-452e-4d06-be6d-c8a4b18771ce
 # ╟─dcabd381-1316-449b-9ebf-68410ee6e3fd
 # ╠═e08e040a-1982-4250-8a5f-a37e7c2377d0
-# ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
+# ╟─a6a64f62-316a-48f5-bd5c-0eebff53022d
+# ╟─336824ad-b89f-4bbb-9f5c-68048dd646c7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
