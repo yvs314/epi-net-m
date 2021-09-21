@@ -101,10 +101,10 @@ killPsi = false; %(if true, set the terminal cost to 0)
 laxmax=1000; laxmin = -laxmax;
 boundlax = false;
 %boundlax = true; %enforce lax is within bounds
-%% Problem Instance (initial values, populations, and travel matrix)
+%% Set Problem Instance Name
 %inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
 %inst="NWcty_75"; %by-county OR + WS, with flights & commute
-inst="NWap_23"; %by-airport OR + WS, with filghts & commute
+%inst="NWap_23"; %by-airport OR + WS, with filghts & commute
 %inst="NWste_2"; %by-state OR + WS, with flights & commute
 
 %inst="WCTtra_9110"; %WCT is CA + OR + WS
@@ -112,6 +112,23 @@ inst="NWap_23"; %by-airport OR + WS, with filghts & commute
 %inst="WCTap_52";
 %inst="WCTste_3";
 
+%inst="ALLcty_3109";
+%inst="ALLap_417";
+%inst="ALLste_49";
+
+%inst = "NW1tra_2834";
+
+%inst = "NW2ste_8";
+%inst = "NW2ap_74";
+%inst = "NW2cty_259";
+%inst = "NW2tra_4830";
+
+%inst = "CAste_1"; %implementation doesn't support 1-node instances :(
+%inst = "CAap_32";
+%inst = "CActy_58";
+%inst = "CAtra_7038";
+
+%% Read Problem Instance (initial values, populations, and travel matrix)
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
 tIVs = readtable(pathIV(inst));
 
