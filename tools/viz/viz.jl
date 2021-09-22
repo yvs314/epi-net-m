@@ -13,13 +13,29 @@ macro bind(def, element)
     end
 end
 
+# ╔═╡ e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+md"""
+# Solution visualizer
+Instructions will go here.
+"""
+
+# ╔═╡ 3389dc98-b90f-4c6a-8c96-31840b0516ea
+# a workaround to allow dynamically reloaded includes
+module includes
+	include("ui.jl")
+	include("vega-specs.jl")
+end
+
 # ╔═╡ e598c897-61bf-4bc2-91db-e225362f5606
 # Start off by importing all the stuff
 begin
 	using VegaLite,VegaDatasets
-	using FromFile, DataFrames, CSV, Statistics, Revise
+	using DataFrames, CSV, Statistics, Revise
 	using PlutoUI, HypertextLiteral
 	
+	UI = includes.VizUI
+	Specs = includes.VizSpecs
+		
 	thisPath = splitpath(@__DIR__)
 	projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
 	
@@ -27,12 +43,6 @@ begin
 	const iDir = joinpath(projRoot...,"out") #here be the simulator's outputs
 	
 end
-
-# ╔═╡ e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
-md"""
-# Solution visualizer
-Instructions will go here.
-"""
 
 # ╔═╡ 0d909765-a87d-4a3c-bb9f-ff80e463992a
 #TODO: file selector based on the contents of /out
@@ -79,148 +89,20 @@ catch err
 	md"**Error while reading solution files:** $(err)"
 end
 
-# ╔═╡ 4fcd14d1-8dbb-41bd-97e9-21e480c608af
-function day2col(day::Int)
-	"Z" * string(day)
-end
-
 # ╔═╡ dcabd381-1316-449b-9ebf-68410ee6e3fd
-@bind day html"""
-<div id="day-picker">
-	<button id="first-btn"> first </button>
-	<button id="prev-btn"> prev </button>
-	<input  id="curr-day"/>
-	<button id="next-btn"> next </button>
-	<button id="last-btn"> last </button>
+@bind day UI.dayPicker(0, 180)
 
-	<script>
-		const div = currentScript.parentElement;
-		const inputField = div.querySelector("#curr-day");
-	
-		let currentVal = 0;
-		// min and max day allowed
-		const MIN = 0;
-		const MAX = 180;
-
-		function updateValue(newVal) {
-			div.value = newVal;
-			div.dispatchEvent(new CustomEvent("input"));
-		}
-
-		function updateTextbox(newVal) {
-			inputField.value = newVal;
-		}
-
-		updateValue(currentVal);
-		updateTextbox(currentVal);
-
-		// update value only when Return is pressed or focus is lost
-		inputField.addEventListener("change", e => {
-			const newVal = parseInt(e.target.value);
-
-			// undo the change if new number out of range or if invalid
-			if (newVal < MIN || newVal > MAX || isNaN(newVal)) {
-				updateTextbox();
-				return;
-			}
-			currentVal = newVal;
-			updateTextbox(newVal);
-			updateValue(newVal);
-		});
-
-		/*** buttons ***/
-
-		["#first-btn", "#prev-btn", "#next-btn", "#last-btn"].forEach((s, i) => {
-			div.querySelector(s).addEventListener("click", e => {
-				currentVal = i == 0 ? MIN :
-						     i == 1 ? currentVal - 1 :
-							 i == 2 ? currentVal + 1 :
-									  MAX;
-
-
-				updateTextbox(currentVal);
-				updateValue(currentVal);
-			});
-		});
-		
-
-	</script>
-</div>
-"""
-
-# ╔═╡ c3f20db0-452e-4d06-be6d-c8a4b18771ce
+# ╔═╡ cc533197-dbe3-41b6-8478-64f82da52ba8
 md"Day selected: $day"
 
-# ╔═╡ e08e040a-1982-4250-8a5f-a37e7c2377d0
-us10m = dataset("us-10m")
-
 # ╔═╡ a6a64f62-316a-48f5-bd5c-0eebff53022d
-pltZ = @vlplot(
-	repeat={column=[day2col(day), day2col(day)*"_NULL"]},
-) + 
-@vlplot(
-	:geoshape,
-	data={
-		values=us10m,
-		format={
-			type=:topojson,
-			feature=:counties
-		}
-	},
-	transform=[{
-		lookup=:id,
-		from={
-			data=select(sol, ["id", day2col(day), day2col(day)*"_NULL"]), #INSERT DF HERE
-			key=:id,
-			fields=[day2col(day), day2col(day)*"_NULL"]
-		}
-	}],
-	projection={
-		type=:albersUsa
-	},
-	encoding={
-		color={
-			field={repeat=:column},
-			type=:quantitative,
-			scale={
-				domainMid= a0Median, #median no. infected
-				scheme=:reds
-			}
-		}
-	}
-); nothing # prevents Pluto from trying to render the plot
-
-# ╔═╡ 336824ad-b89f-4bbb-9f5c-68048dd646c7
-begin
-	json = sprint(VegaLite.our_json_print, pltZ)
-	
-	@htl("""
-		<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-		<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-		<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-
-		<div id="vis"></div>
-
-		<script>
-			console.log(typeof $json);
-			const spec = JSON.parse($json);
-		
-			vegaEmbed("#vis", spec)
-				// result.view provides access to the Vega View API
-			  .then(result => console.log(result))
-			  .catch(console.warn);
-		</script>
-
-		""")
-	
-end
+Specs.pltZOptVsNullByCty(sol, day, a0Median) |> UI.vegaEmbed
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-FromFile = "ff7dd447-1dcb-4ce3-b8ac-22a812192de7"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
@@ -231,7 +113,6 @@ VegaLite = "112f6efa-9a02-5b7d-90c0-432ed331239a"
 [compat]
 CSV = "~0.8.5"
 DataFrames = "~1.2.2"
-FromFile = "~0.1.1"
 HypertextLiteral = "~0.9.0"
 PlutoUI = "~0.7.9"
 Revise = "~3.1.19"
@@ -384,11 +265,6 @@ deps = ["Printf"]
 git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
-
-[[FromFile]]
-git-tree-sha1 = "f4fce099f9e14cd12d91e29fd105ef891fb55297"
-uuid = "ff7dd447-1dcb-4ce3-b8ac-22a812192de7"
-version = "0.1.1"
 
 [[Future]]
 deps = ["Random"]
@@ -825,15 +701,13 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 
 # ╔═╡ Cell order:
 # ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+# ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
 # ╠═e598c897-61bf-4bc2-91db-e225362f5606
-# ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
+# ╟─0d909765-a87d-4a3c-bb9f-ff80e463992a
 # ╟─ced90367-407c-4b67-8276-68edc17933d3
 # ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
-# ╟─4fcd14d1-8dbb-41bd-97e9-21e480c608af
-# ╠═c3f20db0-452e-4d06-be6d-c8a4b18771ce
-# ╟─dcabd381-1316-449b-9ebf-68410ee6e3fd
-# ╠═e08e040a-1982-4250-8a5f-a37e7c2377d0
+# ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
+# ╠═dcabd381-1316-449b-9ebf-68410ee6e3fd
 # ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
-# ╠═336824ad-b89f-4bbb-9f5c-68048dd646c7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
