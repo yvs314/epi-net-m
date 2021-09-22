@@ -19,35 +19,27 @@ function dayPicker(min::Int, max::Int)
         const div = currentScript.parentElement;
         const inputField = div.querySelector("#curr-day");
 
-        let currentVal = 0;
         // min and max day allowed
         const MIN = $(min);
         const MAX = $(max);
 
-        function updateValue(newVal) {
-            div.value = newVal;
+        function setValue(newVal) {
+            // only change if new number in range and valid
+            if (newVal >= MIN && newVal <= MAX && !isNaN(newVal)) {
+                div.value = newVal;
+            }
+            // no matter if the value changed, update the Pluto value
+            // and the textbox to ensure everything matches
+            inputField.value = div.value;
             div.dispatchEvent(new CustomEvent("input"));
         }
 
-        function updateTextbox(newVal) {
-            inputField.value = newVal;
-        }
-
-        updateValue(currentVal);
-        updateTextbox(currentVal);
+        setValue(MIN);
 
         // update value only when Return is pressed or focus is lost
         inputField.addEventListener("change", e => {
             const newVal = parseInt(e.target.value);
-
-            // undo the change if new number out of range or if invalid
-            if (newVal < MIN || newVal > MAX || isNaN(newVal)) {
-                updateTextbox(currentVal);
-                return;
-            }
-            currentVal = newVal;
-            updateTextbox(newVal);
-            updateValue(newVal);
+            setValue(newVal);
         });
 
         /*** buttons ***/
@@ -55,16 +47,11 @@ function dayPicker(min::Int, max::Int)
         ["#first-btn", "#prev-btn", "#next-btn", "#last-btn"].forEach((s, i) => {
             div.querySelector(s).addEventListener("click", e => {
                 const newVal = i == 0 ? MIN :
-                            i == 1 ? currentVal - 1 :
-                            i == 2 ? currentVal + 1 :
+                            i == 1 ? div.value - 1 :
+                            i == 2 ? div.value + 1 :
                                      MAX;
 
-                if (newVal >= MIN && newVal <= MAX) {
-                    currentVal = newVal;
-                }
-
-                updateTextbox(currentVal);
-                updateValue(currentVal);
+                setValue(newVal);
             });
         });
 
