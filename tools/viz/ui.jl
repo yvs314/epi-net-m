@@ -54,11 +54,14 @@ function dayPicker(min::Int, max::Int)
 
         ["#first-btn", "#prev-btn", "#next-btn", "#last-btn"].forEach((s, i) => {
             div.querySelector(s).addEventListener("click", e => {
-                currentVal = i == 0 ? MIN :
+                const newVal = i == 0 ? MIN :
                             i == 1 ? currentVal - 1 :
                             i == 2 ? currentVal + 1 :
                                      MAX;
 
+                if (newVal >= MIN && newVal <= MAX) {
+                    currentVal = newVal;
+                }
 
                 updateTextbox(currentVal);
                 updateValue(currentVal);

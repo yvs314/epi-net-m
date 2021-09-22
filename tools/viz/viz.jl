@@ -21,6 +21,7 @@ Instructions will go here.
 
 # ╔═╡ 3389dc98-b90f-4c6a-8c96-31840b0516ea
 # a workaround to allow dynamically reloaded includes
+# --refresh this cell to reload the included files
 module includes
 	include("ui.jl")
 	include("vega-specs.jl")
