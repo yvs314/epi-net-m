@@ -6,13 +6,22 @@ using VegaLite
 export dayPicker, vegaEmbed
 
 
-function dayPicker(min::Int, max::Int)
+function dayPicker(min::Int, max::Int, steps::Vector{Int}=[1])
+    # create arrays of IDs for backwards and forwards step buttons
+    btnIDs = vcat([ "#prev-" * string(step) for step in reverse(steps) ],
+                  [ "#next-" * string(step) for step in steps ])
+
+
     @htl("""
     <div id="day-picker">
         <button id="first-btn"> first </button>
-        <button id="prev-btn"> prev </button>
+        $((
+            @htl("""<button id="prev-$step"> -$step </button>""") for step in reverse(steps)
+        ))
         <input  id="curr-day"/>
-        <button id="next-btn"> next </button>
+        $((
+            @htl("""<button id="next-$step"> +$step </button>""") for step in steps
+        ))
         <button id="last-btn"> last </button>
 
         <script>
@@ -27,11 +36,11 @@ function dayPicker(min::Int, max::Int)
             // only change if new number in range and valid
             if (newVal >= MIN && newVal <= MAX && !isNaN(newVal)) {
                 div.value = newVal;
+                div.dispatchEvent(new CustomEvent("input"));
             }
-            // no matter if the value changed, update the Pluto value
-            // and the textbox to ensure everything matches
+            // no matter if the value changed, update the textbox
+            // to clean up any invalid characters
             inputField.value = div.value;
-            div.dispatchEvent(new CustomEvent("input"));
         }
 
         setValue(MIN);
@@ -44,18 +53,19 @@ function dayPicker(min::Int, max::Int)
 
         /*** buttons ***/
 
-        ["#first-btn", "#prev-btn", "#next-btn", "#last-btn"].forEach((s, i) => {
+        ["#first-btn", "#last-btn"].forEach((s, i) => {
             div.querySelector(s).addEventListener("click", e => {
-                const newVal = i == 0 ? MIN :
-                            i == 1 ? div.value - 1 :
-                            i == 2 ? div.value + 1 :
-                                     MAX;
-
+                const newVal = i == 0 ? MIN : MAX;
                 setValue(newVal);
             });
         });
 
-
+        $(btnIDs).forEach((s, i) => {
+            div.querySelector(s).addEventListener("click", e => {
+                const newVal = div.value + parseInt(e.target.innerText);
+                setValue(newVal);
+            });
+        });
         </script>
     </div> 
     """)

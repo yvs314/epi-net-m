@@ -91,7 +91,7 @@ catch err
 end
 
 # ╔═╡ dcabd381-1316-449b-9ebf-68410ee6e3fd
-@bind day UI.dayPicker(0, 180)
+@bind day UI.dayPicker(0, 180, [1, 10])
 
 # ╔═╡ cc533197-dbe3-41b6-8478-64f82da52ba8
 md"Day selected: $day"
@@ -703,7 +703,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╔═╡ Cell order:
 # ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
-# ╠═e598c897-61bf-4bc2-91db-e225362f5606
+# ╟─e598c897-61bf-4bc2-91db-e225362f5606
 # ╟─0d909765-a87d-4a3c-bb9f-ff80e463992a
 # ╟─ced90367-407c-4b67-8276-68edc17933d3
 # ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
