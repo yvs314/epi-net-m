@@ -1,12 +1,12 @@
 """
 Authors: Kara Ignatenko, 2021
 
-Contains VegaLite spec-generating functions to be used in PLuto.jl visualizations.
+Contains VegaLite spec-generating functions to be used in visualizations.
 
 vega-specs.jl
 2021-09-22 v.0.1: First modular version
 """
-module VizSpecs
+module VegaSpecs
 
 using VegaLite, VegaDatasets, DataFrames
 

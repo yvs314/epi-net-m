@@ -23,7 +23,7 @@ Instructions will go here.
 # a workaround to allow dynamically reloaded includes
 # --refresh this cell to reload the included files
 module includes
-	include("ui.jl")
+	include("viz-ui.jl")
 	include("vega-specs.jl")
 end
 
@@ -35,7 +35,7 @@ begin
 	using PlutoUI, HypertextLiteral
 	
 	UI = includes.VizUI
-	Specs = includes.VizSpecs
+	Specs = includes.VegaSpecs
 		
 	thisPath = splitpath(@__DIR__)
 	projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
