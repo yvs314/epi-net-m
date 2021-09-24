@@ -5,7 +5,8 @@ Authors: Yaroslav Salii, 2020+
 Submodule responsible for grouping and aggregating tracts to various levels.
 
 aggregation.jl
-2021-08-13 v.0.1: First modular version
+2021-08-13 v.0.1 First modular version
+2021-09-09 v.0.2 add dummy partByTra to maintain dispatch interface
 """
 module Aggregation
 using DataFrames
@@ -14,6 +15,7 @@ using Statistics: mean
 export aggByCty,
        aggBySte,
        aggByAP,
+       partByTra,
        partByCty,
        partByAP,
        partBySte
@@ -89,6 +91,14 @@ end
 """Map IATA codes in `pns` to lists of node indices in `ns`."""
 function partByAP(ns::DataFrame,pns::DataFrame)
     Dict(x => filter(ri -> ns.IATA_Code[ri]==x, 1:nrow(ns)) for x ∈ pns.IATA_Code |> unique)
+end
+
+"""
+Dummy partition: map each tract name to a 1-vector with its row number.
+Arguments `ns` and `pns` are identical, wit `pns` kept to maintain the partByXX interface
+"""
+function partByTra(ns::DataFrame,pns::DataFrame)
+    Dict( ns.Name[ix] => [ix] for ix ∈ 1:nrow(ns))
 end
 
 """
