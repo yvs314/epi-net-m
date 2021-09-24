@@ -1,3 +1,12 @@
+"""
+Authors: Kara Ignatenko, 2021
+
+Contains useful UI elements for Pluto.jl visualizations.
+
+ui.jl
+2021-09-22 v.0.1: First modular version
+2021-09-24 v.0.2: Add support for arbitrary steps in the day picker
+"""
 module VizUI
 
 using HypertextLiteral
@@ -5,7 +14,13 @@ using VegaLite
 
 export dayPicker, vegaEmbed
 
-
+"""
+Create an interactive day picker widget for Pluto.jl.
+The widget accepts integer values between `MIN` and `MAX`.
+In addition to the textbox, buttons are provided to jump to the
+first and last values, as well as an arbitrary number of steps
+forwards or backwards as given in `steps`.
+"""
 function dayPicker(min::Int, max::Int, steps::Vector{Int}=[1])
     # create arrays of IDs for backwards and forwards step buttons
     btnIDs = vcat([ "#prev-" * string(step) for step in reverse(steps) ],
@@ -71,6 +86,10 @@ function dayPicker(min::Int, max::Int, steps::Vector{Int}=[1])
     """)
 end
 
+"""
+Create the HTML for a Vega-Embed instance that will render
+the VegaLite spec `spec`. 
+"""
 function vegaEmbed(spec::VegaLite.VLSpec)
     # transform spec into JSON
     json = sprint(VegaLite.our_json_print, spec)
