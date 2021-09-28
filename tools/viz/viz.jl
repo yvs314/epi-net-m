@@ -15,8 +15,13 @@ end
 
 # ╔═╡ e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 md"""
-# Solution visualizer
-Instructions will go here.
+# Solution Explorer
+This is an interactive visualization of by-county solutions. Solutions
+are taken from the `out` directory in the repository root, and can be
+produced by executing `m-core/sweep.m` in MatLab.
+
+*Note:* currently, only county-level solutions are supported. Solutions aggregated
+to a different level will not be displayed.
 """
 
 # ╔═╡ 3389dc98-b90f-4c6a-8c96-31840b0516ea
@@ -701,7 +706,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+# ╠═e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
 # ╟─e598c897-61bf-4bc2-91db-e225362f5606
 # ╟─0d909765-a87d-4a3c-bb9f-ff80e463992a
