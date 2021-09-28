@@ -77,7 +77,7 @@ function mkFlightMx2(fs::DataFrame; daily=false::Bool,babble=false::Bool, init_t
     #make a sorted list of ALL the APs in `fs`
     allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
     #delegate to the method with EXPLICIT ground set (`iretAPs`); with retaintours = true
-    return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to,retaintours=true)
+    return mkFlightMx2(fs, map(String, allAPs); daily=daily,babble=babble,init_to=init_to,retaintours=true)
 end
 
 """

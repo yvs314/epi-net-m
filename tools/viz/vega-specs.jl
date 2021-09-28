@@ -57,4 +57,131 @@ function pltZOptVsNullByCty(sol::DataFrame, day::Int, median::Float64)
     )
 end
 
+pltCanvasSte(fips::Vector{String}) = @vlplot(
+    mark={
+        :geoshape,
+        fill=:lightgray,
+        stroke=:white,
+        strokeWidth=1
+    },
+    data={
+        values=us10m,
+        format={
+            type=:topojson,
+            feature=:states
+        }
+    },
+    transform=[{
+            filter={field =:id,oneOf = fips}
+            }],
+    projection={type=:albersUsa},
+)
+
+pltCanvasCty(ctys::DataFrame) = @vlplot(
+    mark={
+        :geoshape,
+        fill=:lightgray,
+        stroke=:white
+    },
+    data={
+        values=us10m,
+        format={
+            type=:topojson,
+            feature=:counties
+        }
+    },
+    transform=[{
+            filter={field =:id,oneOf = ctys.id}
+            }],
+    projection={type=:albersUsa},
+)
+
+pltBoundarySte(fips::Vector{String}) = @vlplot(
+    mark={
+        :geoshape,
+        stroke=:white,
+        filled = false,
+        strokeWidth=3,
+        strokeOpacity=0.2
+    },
+    data={
+        values=us10m,
+        format={
+            type=:topojson,
+            feature=:states
+        }
+    },
+    transform=[{
+            filter={field =:id,oneOf = fips}
+            }],
+    projection={type=:albersUsa},
+)
+
+pltDotsTracts(ns::DataFrame) = @vlplot(
+    :circle,
+    data=ns,
+    projection={type=:albersUsa},
+    longitude="LNG:q",
+    latitude="LAT:q",
+    tooltip="Name:n",
+    size={value=2},
+    color={value=:black})
+
+pltDotsDsgAPs(dsgAPs::DataFrame) = @vlplot(
+    :circle,
+    data=dsgAPs,
+    projection={type=:albersUsa},
+    longitude="LNG:q",
+    latitude="LAT:q",
+    tooltip="IATA_Code:n",
+    size={value=60},
+    color={value=:steelblue}
+)
+
+function pltTractsAndAPsBySte(ns::DataFrame, dsgAPs::DataFrame, fips::Vector{String})
+    @vlplot() + pltCanvasSte(fips) + pltDotsTracts(ns) + pltDotsDsgAPs(dsgAPs)
+end
+
+function pltTractsAndAPsByCty(ns::DataFrame, dsgAPs::DataFrame, fips::Vector{String}, ctys::DataFrame; borders=true::Bool)
+    @vlplot() + pltCanvasCty(ctys) +  pltDotsTracts(ns) + pltDotsDsgAPs(dsgAPs) + pltBoundarySte(fips) 
+end
+
+pltPopCty(ctys::DataFrame) = @vlplot(
+    :geoshape,
+   # width=500, height=300,
+    data={
+        values=us10m,
+        format={
+            type=:topojson,
+            feature=:counties
+        }
+    },
+    transform=[{
+        lookup=:id,
+        from={
+            data=ctys, #INSERT DF HERE
+            key=:id,
+            fields=["Pop"]
+        }
+    }],
+    projection={
+        type=:albersUsa
+    },
+    encoding={
+        color={
+            field="Pop",
+            type=:quantitative,
+            # type=:log,
+            scale={
+                domainMid= 44479, #median county pop
+                scheme=:blues
+            }
+        }
+    }   
+)
+
+function pltPopCtyWithBorders(ctys::DataFrame, fips::Vector{String})
+     @vlplot() + pltPopCty(ctys) + pltBoundarySte(fips)
+end
+
 end
