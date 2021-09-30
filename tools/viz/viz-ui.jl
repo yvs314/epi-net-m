@@ -66,6 +66,9 @@ function dayPicker(min::Int, max::Int, steps::Vector{Int}=[1])
             setValue(newVal);
         });
 
+        // ignore input events instead of letting them propagate
+        inputField.addEventListener("input", e => e.stopPropagation());
+
         /*** buttons ***/
 
         ["#first-btn", "#last-btn"].forEach((s, i) => {
