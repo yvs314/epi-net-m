@@ -9,6 +9,7 @@ This one is mostly for _a posteriori_ figures:
 
 Yaroslav Salii, 2021
 2021-08-25 v.0.0 all plots automated
+2021-10-04 v.0.1 adding avg infected rate and control line plot
 """
 
 using VegaLite,VegaDatasets
@@ -33,22 +34,29 @@ pwd()
 
 #====PREP==THE==DATA=================#
 slnName="NWcty_75"
-#paths to solutions in fracitons, optimal control and null-control
-slnOptPath=joinpath(iDir,slnName*"-frac.csv")
-slnNullPath=joinpath(iDir,slnName*"-frac0.csv")
+#paths to solutions in fractions, optimal control and null-control
+#slnOptPath=joinpath(iDir,slnName*"-frac.csv")
+#slnNullPath=joinpath(iDir,slnName*"-frac0.csv")
 
-#read them
-slnOpt=CSV.read(slnOptPath,DataFrame)
-slnNull=CSV.read(slnNullPath,DataFrame)
-
-"""read the solutions into dataframes and stuff them into a named tuple """
+"""
+Read the solutions into dataframes and stuff them into a named tuple 
+:f,:f0 are *fractional* per-node per-day s/z/r
+:a,:a0 are *absolute* per-node per-day S/Z/R 
+:avgc are per-day average infected fraction z, zNull, and average optimal control effort u
+"""
 function rdSolutions(;iName = slnName, slnDir = iDir )
-    slnSuffs = ["-frac.csv","-frac0.csv","-abs.csv","-abs0.csv"]
+    slnSuffs = ["-frac.csv","-frac0.csv","-abs.csv","-abs0.csv","-avg.csv"]
     slns= map( p -> CSV.read(p,DataFrame), (joinpath(iDir,slnName * suff) for suff in slnSuffs))
-    return NamedTuple([:f,:f0,:a,:a0] .=> slns) 
+    return NamedTuple([:f,:f0,:a,:a0,:avgc] .=> slns) 
 end
 
+#do read all the solutions
 ss = rdSolutions()
+
+#=
+"-avg.csv" has 3 columns: z_avg; zNull_avg; u_avg, and per-day rows. Gotta fix that in MATLAB. 
+also, I should isolate the fundamental plot specs as functions that take the data ("INSERT DF HERE")
+=#
 
 a0Median = ss.a0.Z180 |> median
 a0Max = ss.a0.Z180 |> maximum
@@ -176,7 +184,7 @@ pltBoundarySte = @vlplot(
         }
     },
     transform=[{
-            filter={field =:id,oneOf = fips}
+            filter={field =:id,oneOf = fips} #insert state(?) FIPS
             }],
     projection={type=:albersUsa},
 )

@@ -25,6 +25,7 @@
 % 2021-03-18 v.1.1.1 add the transpose, made control 10 times cheaper
 % 2021-03-25 v.1.2 add ZZ: abs. infected at T and cZR: abs. Z + R (T)
 %            v.1.2.1 add norm-to-1-node output avgOut [z01; z11; avg_u]
+% 2021-10-04 v.1.2.2 add header to norm-to-1-node CSV output
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -90,7 +91,7 @@ r2 = 0.002; %lockdown control fatigue rate
 %r2 = 0;
 
 %%TIME
-T = 180; %time is [0,T], in days
+T = 180; %time is [0,T], in days; default to 180
 %tArr = 0:T that's the de facto usage
 
 %CONTROL bounds (for each component, at each time)
@@ -103,7 +104,7 @@ boundlax = false;
 %boundlax = true; %enforce lax is within bounds
 %% Set Problem Instance Name
 %inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
-%inst="NWcty_75"; %by-county OR + WS, with flights & commute
+inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst="NWap_23"; %by-airport OR + WS, with filghts & commute
 %inst="NWste_2"; %by-state OR + WS, with flights & commute
 
@@ -258,9 +259,10 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %KEEP NULL-CONTROL solution
     if(ct == 1)
         xNull = x; laxNull = lax; JNull = J; ZZNull = ZZ; cZRNull = cZR;
+        sNull = xNull(1:n,:); zNull = xNull(n+1:end,:); rNull = (1 - sNull - zNull);
     end
     
-    if(ct > 250)
+    if(ct > 500)
         error("That probably wouldn't converge. Terminating.");
     end
 end %next sweep iteration
@@ -270,11 +272,9 @@ fprintf('\n J / JNull = %4.4f   improved by %4.4f\n',J / JNull, 1 - J/JNull);
 fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
     ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
 
-
-
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
-sNull = xNull(1:n,:); zNull = xNull(n+1:end,:); rNull = (1 - sNull - zNull);
+
 
 %normalize to 1-node model: sum all absolutes, and divide by pop
 A1 = @(c) sum( c .* N ); 
@@ -284,28 +284,36 @@ a1 = @(c) A1(c) / sum(N);
 %S01 = sum(sNull .* N); Z01 = sum(zNull .* N); R0 = sum(rNull .* N);
 s11 = a1(s); z11 = a1(z); r11 = a1(r); 
 s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
-avgOut = [z01; z11; sum(u) / n]; %[total zNull; total z; avg u]
+avgOut = [z01; z11; sum(u) / n]'; %[total zNull; total z; avg u]
 
 if(J / JNull > 1)
     error("Didn't improve over initial guess. Terminating.");
 end
 
 %% Tabular output
+%column names for frac and abs tables (will be set to uppercase for abs)
 cns = [arrayfun( @(n) 's'+string(n),0:T) ...
      arrayfun( @(n) 'z'+string(n),0:T) ...
      arrayfun( @(n) 'r'+string(n),0:T)];
+
+%col. names for per-node average infected-null, infected-opt, control effort
+cns_avgc = ["z_avg","zNull_avg","u_avg"];
  
+%construct the solution output tables
 otfrac = horzcat(tIVs,array2table([s z r],'VariableNames',cns));
 otfrac0 = horzcat(tIVs,array2table([sNull zNull rNull],'VariableNames',cns));
 otabs = horzcat(tIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
 otabs0 = horzcat(tIVs,array2table([sNull zNull rNull] .* N,'VariableNames',upper(cns)));
+%construct the average output table
+otabavgc = array2table(avgOut, 'VariableNames',cns_avgc);
 
+%write the solution output tables
 writetable(otfrac,pathotfrac(inst));
 writetable(otfrac0,pathotfrac0(inst));
 writetable(otabs,pathotabs(inst));
 writetable(otabs0,pathotabs0(inst));
-
-writematrix(avgOut,pathotavg(inst));
+%write the average output table
+writetable(otabavgc,pathotavg(inst));
 
 %% AUXILIARY FUNCTIONS
 heatmaplog=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn),'ColorScaling','log');
