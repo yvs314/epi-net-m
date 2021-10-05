@@ -16,31 +16,33 @@ export savePlot
 thisPath = splitpath(@__DIR__)
 projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
 const figDir = joinpath(projRoot..., "fig")
-const MIMEtypes = Dict(
-    "pdf" => MIME"application/pdf",
-    "svg" => MIME"image/svg+xml"
+
+const converters = Dict(
+    "pdf" => spec -> VegaLite.convert_vl_to_x(spec, "vg2pdf"),
+    "svg" => VegaLite.convert_vl_to_svg
 )
-const defaultType = MIME"application/vnd.vegalite.v4+json"
+const defaultConverter = VegaLite.our_json_print
 
 timestamp() = Dates.format(Dates.now(), "yy-mm-dd-HMS")
 
 """
 Export `spec` into a file named `prefix-timestamp.extension`
 If `extension` is `"pdf"` or `"csv"`, the spec will be plotted
-into the corresponding format. Otherwise a JSON Vega spec will be output.
+into the corresponding format. Otherwise a JSON VegaLite spec will be output.
 """
 function savePlot(prefix::AbstractString, spec::VegaLite.VLSpec, extension::AbstractString)
     path = joinpath(figDir, prefix * timestamp() * "." * extension)
 
     try
         io = open(path, "w")
-        show(io, get(MIMEtypes, extension, defaultType), spec)
+        data = get(converters, extension, defaultConverter)(spec)
+        write(io, data)
         close(io)
     catch e
-        "Error while writing: " * string(e)
+        "Error while exporting: " * e.msg
     end
 
-    path
+    "Sucessfully exported to " * path
 end
 
 
