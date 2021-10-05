@@ -30,6 +30,7 @@ to a different level will not be displayed.
 module includes
 	include("viz-ui.jl")
 	include("vega-specs.jl")
+	include("exporter.jl")
 end
 
 # ╔═╡ e598c897-61bf-4bc2-91db-e225362f5606
@@ -41,6 +42,7 @@ begin
 	
 	UI = includes.VizUI
 	Specs = includes.VegaSpecs
+	Exp = includes.Exporter
 		
 	thisPath = splitpath(@__DIR__)
 	projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
@@ -102,7 +104,19 @@ end
 md"Day selected: $day"
 
 # ╔═╡ a6a64f62-316a-48f5-bd5c-0eebff53022d
-Specs.pltZOptVsNullByCty(sol, day, a0Median) |> UI.vegaEmbed
+begin
+	pltZ = Specs.pltZOptVsNullByCty(sol, day, a0Median)
+	UI.vegaEmbed(pltZ)
+end
+
+# ╔═╡ 86ddda30-351d-41f6-94b2-4c84dea08448
+begin 
+	sel = @bind format Select(["svg", "pdf"])
+	md"""Select export format: $sel"""
+end
+
+# ╔═╡ bfd9753c-323a-4a82-b5e6-057e7519ed6c
+Exp.savePlot(slnName * "_day$(day)_", pltZ, format)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -706,7 +720,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+# ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
 # ╟─e598c897-61bf-4bc2-91db-e225362f5606
 # ╟─0d909765-a87d-4a3c-bb9f-ff80e463992a
@@ -715,5 +729,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
 # ╠═dcabd381-1316-449b-9ebf-68410ee6e3fd
 # ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
+# ╟─86ddda30-351d-41f6-94b2-4c84dea08448
+# ╠═bfd9753c-323a-4a82-b5e6-057e7519ed6c
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
