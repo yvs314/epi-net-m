@@ -23,6 +23,7 @@ module includes
 	using HypertextLiteral
 	include("./viz-ui.jl")
 	include("./vega-specs.jl")
+	include("./exporter.jl")
 end
 
 # ╔═╡ 94762b1c-4f03-43b9-b288-4f4b77894d3b
@@ -33,6 +34,7 @@ begin
 	Oboe = includes.Oboe
 	UI = includes.VizUI
 	Specs = includes.VegaSpecs
+	Exp = includes.Exporter
 	#====PREP==THE==DATA=================#
 
 	fips = ["41","53"]
@@ -58,7 +60,7 @@ md"# Network Explorer"
 
 # ╔═╡ 75bc7766-500b-45fc-b5dc-af144c17d947
 begin
-	picker = @bind selectedSpec Select([
+	picker = @bind selName Select([
 		"bySte" => "Tracts and APs, with state boundaries",
 		"byCty" => "Tracts and APs, with county and state boundaries",
 		"pop"   => "Population by county"
@@ -74,8 +76,19 @@ begin
 		"pop"   => Specs.pltPopCtyWithBorders(ctys, fips)
 	)
 	
-	UI.vegaEmbed(get(specs, selectedSpec, @vlplot()))
+	selectedPlot = get(specs, selName, @vlplot())
+	
+	UI.vegaEmbed(selectedPlot)
 end
+
+# ╔═╡ f2bfd623-223b-4249-a57a-924f359cbede
+begin 
+	sel = @bind format Select(["svg", "pdf"])
+	md"""Select export format: $sel"""
+end
+
+# ╔═╡ d84d3340-9fec-470e-9717-4261c5c0cce2
+Exp.savePlot("$(selName)_", selectedPlot, format)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -272,9 +285,9 @@ version = "0.2.6"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "Logging", "MbedTLS", "NetworkOptions", "Sockets", "URIs"]
-git-tree-sha1 = "24675428ca27678f003414a98c9e473e45fe6a21"
+git-tree-sha1 = "14eece7a3308b4d8be910e265c724a6ba51a9798"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.9.15"
+version = "0.9.16"
 
 [[HypertextLiteral]]
 git-tree-sha1 = "72053798e1be56026b81d4e2682dbe58922e5ec9"
@@ -475,9 +488,9 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PlutoUI]]
 deps = ["Base64", "Dates", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "f35ae11e070dbf123d5a6f54cbda45818d765ad2"
+git-tree-sha1 = "d1fb76655a95bf6ea4348d7197b22e889a4375f4"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.12"
+version = "0.7.14"
 
 [[Polynomials]]
 deps = ["Intervals", "LinearAlgebra", "MutableArithmetics", "RecipesBase"]
@@ -705,8 +718,10 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╔═╡ Cell order:
 # ╟─fe20d728-2096-11ec-2740-4368d1340f88
 # ╠═a358b3ab-b1d4-471e-a9be-565e7ec339de
-# ╠═94762b1c-4f03-43b9-b288-4f4b77894d3b
-# ╠═75bc7766-500b-45fc-b5dc-af144c17d947
-# ╠═592f98f7-5cc1-448b-aa7d-0d7a0be98835
+# ╟─94762b1c-4f03-43b9-b288-4f4b77894d3b
+# ╟─75bc7766-500b-45fc-b5dc-af144c17d947
+# ╟─592f98f7-5cc1-448b-aa7d-0d7a0be98835
+# ╟─f2bfd623-223b-4249-a57a-924f359cbede
+# ╠═d84d3340-9fec-470e-9717-4261c5c0cce2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
