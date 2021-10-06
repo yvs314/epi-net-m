@@ -25,7 +25,7 @@
 % 2021-03-18 v.1.1.1 add the transpose, made control 10 times cheaper
 % 2021-03-25 v.1.2 add ZZ: abs. infected at T and cZR: abs. Z + R (T)
 %            v.1.2.1 add norm-to-1-node output avgOut [z01; z11; avg_u]
-% 2021-10-04 v.1.2.2 add header to norm-to-1-node CSV output
+% 2021-10-04 v.1.2.2 rehaul avgOut to output as a CSV with header
 
 %% TODO
 % 1 debug output (time, errors, J, &c) to a log file
@@ -118,6 +118,9 @@ inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst="ALLste_49";
 
 %inst = "NW1tra_2834";
+%inst = "NW1cty_136";
+%inst = "NW1ap_37";
+%inst = "NW1ste_4";
 
 %inst = "NW2ste_8";
 %inst = "NW2ap_74";
@@ -297,7 +300,7 @@ cns = [arrayfun( @(n) 's'+string(n),0:T) ...
      arrayfun( @(n) 'r'+string(n),0:T)];
 
 %col. names for per-node average infected-null, infected-opt, control effort
-cns_avgc = ["z_avg","zNull_avg","u_avg"];
+cns_avgc = ["zNull_avg","z_avg","u_avg"];
  
 %construct the solution output tables
 otfrac = horzcat(tIVs,array2table([s z r],'VariableNames',cns));

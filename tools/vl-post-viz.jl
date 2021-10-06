@@ -9,7 +9,7 @@ This one is mostly for _a posteriori_ figures:
 
 Yaroslav Salii, 2021
 2021-08-25 v.0.0 all plots automated
-2021-10-04 v.0.1 adding avg infected rate and control line plot
+2021-10-04 v.0.1 add avg infected vs avg control line plot
 """
 
 using VegaLite,VegaDatasets
@@ -33,7 +33,11 @@ pwd()
 #@from "./Oboe/Oboe.jl" import Oboe
 
 #====PREP==THE==DATA=================#
-slnName="NWcty_75"
+#slnName="NWcty_75"
+#slnName="NWste_2"
+#slnName="NWap_23"
+slnName="NWtra_2072"
+fips=["41","53"]
 #paths to solutions in fractions, optimal control and null-control
 #slnOptPath=joinpath(iDir,slnName*"-frac.csv")
 #slnNullPath=joinpath(iDir,slnName*"-frac0.csv")
@@ -57,9 +61,44 @@ ss = rdSolutions()
 "-avg.csv" has 3 columns: z_avg; zNull_avg; u_avg, and per-day rows. Gotta fix that in MATLAB. 
 also, I should isolate the fundamental plot specs as functions that take the data ("INSERT DF HERE")
 =#
+#insert day numbers
+insertcols!(ss.avgc,1,:day => 0:(nrow(ss.avgc)-1))
+long_avgc = stack(ss.avgc,[:z_avg,:zNull_avg,:u_avg],variable_name=:symbol)
+
 
 a0Median = ss.a0.Z180 |> median
 a0Max = ss.a0.Z180 |> maximum
+
+
+#====PLOT==AVG==INFECTED==AND==CONTROL===#
+pltAvgInfdCtrl = @vlplot(
+    data = long_avgc,
+    :line,
+    x=:day,
+    y=:value,
+    color={
+        :symbol, 
+        scale={
+            domain=["zNull_avg","z_avg","u_avg"],
+            range = ["#E31A1C","#FB9A99","#33A02C"] #red, pink, green
+            #scheme=:paired
+        },
+        #legend = nothing
+        legend = {
+            orient = "top-right",
+            #values=["lorem","ipsum","sit"]
+            title = "variable",
+        }
+        },
+)
+
+
+pathPlotAvgZC=joinpath(figDir,slnName * "-avgzc" *".pdf") 
+
+
+save(pathPlotAvgZC,pltAvgInfdCtrl)
+
+
 
 #====PLOT==ABS==INFECTED=======#
 
@@ -205,6 +244,29 @@ save(plotPaths[3],pltIVs)
 #map(p -> save(p[1],p[2]),(plotPaths .=> [pltOpt,pltNull,pltIVs]))
 
 #=========BIT====BUCKET===============#
+# these plot each line separately
+# pltAvg_zNull= @vlplot(
+#     data = ss.avgc,    
+#     :line,
+#     x=:day,
+#     y=:zNull_avg
+# )
+
+# pltAvg_zOpt= @vlplot(
+#     data = ss.avgc,    
+#     :line,
+#     x=:day,
+#     y=:z_avg
+# )
+
+# pltAvg_ctrl= @vlplot(
+#     data = ss.avgc,    
+#     :line,
+#     x=:day,
+#     y=:u_avg
+# )
+
+
 #note: reused from vl-pre-viz.jl, candidate for isolation
 # pltCanvasSte = @vlplot(
 #     mark={
