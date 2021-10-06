@@ -6,7 +6,7 @@ function [outFig] = figSimplex(s_in, z_in, nodeTag)
 outFig = newplot;
 fplot(@(x) 1-x, [0,max(z_in,[],'all')]);
 hold on;
-plot(z_in',s_in',':+');
+plot(z_in',s_in','-');
 hold off;
     
 %title and axis labels
