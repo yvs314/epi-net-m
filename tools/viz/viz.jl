@@ -47,7 +47,6 @@ begin
 	thisPath = splitpath(@__DIR__)
 	projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
 	
-	const figDir = joinpath(projRoot...,"fig") #where to put the resulting plots
 	const iDir = joinpath(projRoot...,"out") #here be the simulator's outputs
 	
 end
@@ -112,11 +111,15 @@ end
 # ╔═╡ 86ddda30-351d-41f6-94b2-4c84dea08448
 begin 
 	sel = @bind format Select(["svg", "pdf"])
-	md"""Select export format: $sel"""
+	cbx = @bind exportingEnabled UI.booleanButton("Export")
+	figDir = Exp.figDir 
+	@htl("""Select export format: $sel $cbx – Will be saved to $figDir""")
 end
 
 # ╔═╡ bfd9753c-323a-4a82-b5e6-057e7519ed6c
-Exp.savePlot(slnName * "_day$(day)_", pltZ, format)
+if exportingEnabled
+	Exp.savePlot(slnName * "_day$(day)_", pltZ, format)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -729,7 +732,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
 # ╠═dcabd381-1316-449b-9ebf-68410ee6e3fd
 # ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
-# ╟─86ddda30-351d-41f6-94b2-4c84dea08448
+# ╠═86ddda30-351d-41f6-94b2-4c84dea08448
 # ╠═bfd9753c-323a-4a82-b5e6-057e7519ed6c
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

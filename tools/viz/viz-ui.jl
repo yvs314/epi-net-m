@@ -6,6 +6,7 @@ Contains useful UI elements for Pluto.jl visualizations.
 ui.jl
 2021-09-22 v.0.1: First modular version
 2021-09-24 v.0.2: Add support for arbitrary steps in the day picker
+2021-10-07 v.0.3: Added the booleanButton widget
 """
 module VizUI
 
@@ -115,6 +116,35 @@ function vegaEmbed(spec::VegaLite.VLSpec)
 
     """)
 
+end
+
+"""
+Create a Pluto.jl button that will set a boolean value to `true`,
+and then reset it back to false after `timeout` milliseconds.
+"""
+function booleanButton(text::String, timeout::Int=1000)
+    @htl("""
+    <span id="bool-btn-wrapper">
+        <button id="bool-btn"> $(text) </button>
+
+        <script>
+            const span = currentScript.parentElement;
+            const button = span.querySelector("#bool-btn");
+
+            span.value = false;
+
+            button.addEventListener("click", e => {
+                span.value = true;
+                span.dispatchEvent(new CustomEvent("input"));   
+
+                setTimeout(_ => { 
+                    span.value = false;
+                    span.dispatchEvent(new CustomEvent("input"));   
+                }, $(timeout));
+            });
+        </script>
+    </span>
+    """)
 end
 
 end

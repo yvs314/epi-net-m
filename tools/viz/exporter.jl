@@ -11,7 +11,7 @@ module Exporter
 using Dates
 using VegaLite
 
-export savePlot
+export savePlot, figDir
 
 thisPath = splitpath(@__DIR__)
 projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]

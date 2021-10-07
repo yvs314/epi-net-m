@@ -84,11 +84,15 @@ end
 # ╔═╡ f2bfd623-223b-4249-a57a-924f359cbede
 begin 
 	sel = @bind format Select(["svg", "pdf"])
-	md"""Select export format: $sel"""
+	cbx = @bind exportingEnabled UI.booleanButton("Export")
+	figDir = Exp.figDir 
+	@htl("""Select export format: $sel $cbx – Will be saved to $figDir""")
 end
 
 # ╔═╡ d84d3340-9fec-470e-9717-4261c5c0cce2
-Exp.savePlot("$(selName)_", selectedPlot, format)
+if exportingEnabled
+	Exp.savePlot("$(selName)_", selectedPlot, format)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
