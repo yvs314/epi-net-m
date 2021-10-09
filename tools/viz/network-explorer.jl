@@ -56,7 +56,21 @@ begin
 end
 
 # ╔═╡ fe20d728-2096-11ec-2740-4368d1340f88
-md"# Network Explorer"
+md"""
+# Network Explorer
+
+This is a collection of plots of the *transportation network*, i.e. 
+the set of airports, statistical divisions and the air and commuter connections
+between them. The transportation network is created and processed by Oboe.
+Edit the `fips` variable to modify the set of states that are included in the
+processing.
+
+---
+Authors: Kara Ignatenko, 2021
+
+Changelog:
+- 2021-10-09 v.1.0: First complete version
+"""
 
 # ╔═╡ 75bc7766-500b-45fc-b5dc-af144c17d947
 begin
@@ -92,6 +106,7 @@ end
 # ╔═╡ d84d3340-9fec-470e-9717-4261c5c0cce2
 if exportingEnabled
 	Exp.savePlot("$(selName)_", selectedPlot, format)
+	Exp.notify("ayo")
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -720,9 +735,9 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╟─fe20d728-2096-11ec-2740-4368d1340f88
+# ╠═fe20d728-2096-11ec-2740-4368d1340f88
 # ╠═a358b3ab-b1d4-471e-a9be-565e7ec339de
-# ╟─94762b1c-4f03-43b9-b288-4f4b77894d3b
+# ╠═94762b1c-4f03-43b9-b288-4f4b77894d3b
 # ╟─75bc7766-500b-45fc-b5dc-af144c17d947
 # ╟─592f98f7-5cc1-448b-aa7d-0d7a0be98835
 # ╟─f2bfd623-223b-4249-a57a-924f359cbede
