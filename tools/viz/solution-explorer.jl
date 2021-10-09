@@ -77,11 +77,16 @@ begin
 end
 
 # ╔═╡ ced90367-407c-4b67-8276-68edc17933d3
-"""read the solutions into dataframes and stuff them into a named tuple """
+"""
+Read the solutions into dataframes and stuff them into a named tuple 
+:f,:f0 are *fractional* per-node per-day s/z/r
+:a,:a0 are *absolute* per-node per-day S/Z/R 
+:avgc are per-day average infected fraction z, zNull, and average optimal control effort u
+"""
 function rdSolutions(iName, slnDir)
-    slnSuffs = ["-frac.csv","-frac0.csv","-abs.csv","-abs0.csv"]
+	slnSuffs = ["-frac.csv","-frac0.csv","-abs.csv","-abs0.csv","-avg.csv"]
     slns= map( p -> CSV.read(p,DataFrame), (joinpath(iDir,slnName * suff) for suff in slnSuffs))
-    return NamedTuple([:f,:f0,:a,:a0] .=> slns) 
+    return NamedTuple([:f,:f0,:a,:a0, :avgc] .=> slns) 
 end
 
 # ╔═╡ 6a2ca31f-716c-48f4-8e1a-70e3c033358b
@@ -98,6 +103,13 @@ try
 	#toss everything into one dataframe to simplify rendering
 	#for the null case, add _NULL to the column names
 	global sol = innerjoin(a_clean, a0_clean, on="id", renamecols=("" => "_NULL"))
+	
+		#=
+	"-avg.csv" has 3 columns: z_avg; zNull_avg; u_avg, and per-day rows. Gotta fix that in MATLAB. 
+	=#
+	#insert day numbers
+	insertcols!(ss.avgc,1,:day => 0:(nrow(ss.avgc)-1))
+	global long_avgc = stack(ss.avgc,[:z_avg,:zNull_avg,:u_avg],variable_name=:symbol)
 			
 	md"Solution files read successfully!"
 catch err
@@ -116,17 +128,29 @@ begin
 	UI.vegaEmbed(pltZ)
 end
 
+# ╔═╡ f4bf1143-c315-4521-b19b-06bf0373828a
+begin
+	pltAvgZandU = Specs.pltAvgInfdCtrl(long_avgc)
+	UI.vegaEmbed(pltAvgZandU)
+end
+
 # ╔═╡ 86ddda30-351d-41f6-94b2-4c84dea08448
 begin 
 	sel = @bind format Select(["svg", "pdf"])
-	cbx = @bind exportingEnabled UI.booleanButton("Export")
+	cbx = @bind exportMap UI.booleanButton("Export map")
+	cbx2 = @bind exportPlot UI.booleanButton("Export avg. plot")
 	figDir = Exp.figDir 
-	@htl("""Select export format: $sel $cbx – Will be saved to $figDir""")
+	@htl("""Select export format: $sel $cbx $cbx2 – Will be saved to $figDir""")
 end
 
 # ╔═╡ bfd9753c-323a-4a82-b5e6-057e7519ed6c
-if exportingEnabled
+if exportMap
 	Exp.savePlot(slnName * "_day$(day)_", pltZ, format)
+end
+
+# ╔═╡ ff5a5927-6bc6-4b05-b0e8-e0bfdc623440
+if exportPlot
+	Exp.savePlot(slnName * "_avgZ_", pltAvgZandU, format)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -735,12 +759,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
 # ╟─e598c897-61bf-4bc2-91db-e225362f5606
 # ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
-# ╟─ced90367-407c-4b67-8276-68edc17933d3
-# ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
+# ╠═ced90367-407c-4b67-8276-68edc17933d3
+# ╠═6a2ca31f-716c-48f4-8e1a-70e3c033358b
 # ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
 # ╠═dcabd381-1316-449b-9ebf-68410ee6e3fd
-# ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
+# ╟─a6a64f62-316a-48f5-bd5c-0eebff53022d
+# ╟─f4bf1143-c315-4521-b19b-06bf0373828a
 # ╠═86ddda30-351d-41f6-94b2-4c84dea08448
 # ╠═bfd9753c-323a-4a82-b5e6-057e7519ed6c
+# ╠═ff5a5927-6bc6-4b05-b0e8-e0bfdc623440
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -57,6 +57,55 @@ function pltZOptVsNullByCty(sol::DataFrame, day::Int, median::Float64)
     )
 end
 
+"""
+Plot the average infection rate Z (for both the optimal case
+and the null case) and the control effort U as functions
+of time.
+`long_avgc` must have `[:z_avg, :zNull_avg, :u_avg]`
+"""
+pltAvgInfdCtrl(long_avgc::DataFrame) = @vlplot(
+    data = long_avgc,
+    :line,
+    x=:day,
+    y=:value,
+    color={
+        :symbol, 
+        scale={
+            domain=["zNull_avg","z_avg","u_avg"],
+            range = ["#E31A1C","#FB9A99","#33A02C"] #red, pink, green
+            #scheme=:paired
+        },
+        #legend = nothing
+        legend = {
+            orient = "top-right",
+            #values=["lorem","ipsum","sit"]
+            title = "variable",
+        }
+    },
+)
+
+# these plot each line separately
+pltAvg_zNull(ss::DataFrame) = @vlplot(
+    data = ss.avgc,    
+    :line,
+    x=:day,
+    y=:zNull_avg
+)
+
+pltAvg_zOpt(ss::DataFrame) = @vlplot(
+    data = ss.avgc,    
+    :line,
+    x=:day,
+    y=:z_avg
+)
+
+pltAvg_ctrl(ss::DataFrame) = @vlplot(
+    data = ss.avgc,    
+    :line,
+    x=:day,
+    y=:u_avg
+)
+
 pltCanvasSte(fips::Vector{String}) = @vlplot(
     mark={
         :geoshape,

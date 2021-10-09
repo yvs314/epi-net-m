@@ -98,17 +98,20 @@ function vegaEmbed(spec::VegaLite.VLSpec)
     # transform spec into JSON
     json = sprint(VegaLite.our_json_print, spec)
 
+    # generate random number to allow for more than one visualization
+    uid = abs(rand(Int))
+
     @htl("""
     <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 
-    <div id="vis"></div>
+    <div id="vis-$uid"></div>
 
     <script>
         const spec = JSON.parse($json);
     
-        vegaEmbed("#vis", spec)
+        vegaEmbed("#vis-$uid", spec)
             // result.view provides access to the Vega View API
           .then(result => console.log(result))
           .catch(console.warn);
