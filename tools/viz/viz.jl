@@ -59,6 +59,7 @@ begin
 	csvs = filter(endswith(".csv"), outDir)
 	#get the list of unique solution names (prefixes)
 	solNames = map(fname -> split(fname, "-")[1], csvs) |> unique
+	filter!(contains("cty"), solNames)
 	
 	#create a <select> to pick from the prefixes 
 	picker = @bind slnName Select(solNames)
@@ -726,7 +727,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
 # ╟─e598c897-61bf-4bc2-91db-e225362f5606
-# ╟─0d909765-a87d-4a3c-bb9f-ff80e463992a
+# ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
 # ╟─ced90367-407c-4b67-8276-68edc17933d3
 # ╟─6a2ca31f-716c-48f4-8e1a-70e3c033358b
 # ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
