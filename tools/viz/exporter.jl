@@ -33,16 +33,12 @@ into the corresponding format. Otherwise a JSON VegaLite spec will be output.
 function savePlot(prefix::AbstractString, spec::VegaLite.VLSpec, extension::AbstractString)
     path = joinpath(figDir, prefix * timestamp() * "." * extension)
 
-    try
-        io = open(path, "w")
-        data = get(converters, extension, defaultConverter)(spec)
-        write(io, data)
-        close(io)
-    catch e
-        "Error while exporting: " * e.msg
-    end
+    io = open(path, "w")
+    data = get(converters, extension, defaultConverter)(spec)
+    write(io, data)
+    close(io)
 
-    "Sucessfully exported to " * path
+    path
 end
 
 
