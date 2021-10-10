@@ -23,26 +23,26 @@ first and last values, as well as an arbitrary number of steps
 forwards or backwards as given in `steps`.
 """
 function dayPicker(min::Int, max::Int, steps::Vector{Int}=[1])
-    # create arrays of IDs for backwards and forwards step buttons
-    btnIDs = vcat([ "#prev-" * string(step) for step in reverse(steps) ],
-                  [ "#next-" * string(step) for step in steps ])
+    # create arrays of classes for backwards and forwards step buttons
+    btnClasses = vcat([ ".prev-" * string(step) for step in reverse(steps) ],
+                      [ ".next-" * string(step) for step in steps ])
 
 
     @htl("""
-    <div id="day-picker">
-        <button id="first-btn"> first </button>
+    <div>
+        <button class="first-btn"> first </button>
         $((
-            @htl("""<button id="prev-$step"> -$step </button>""") for step in reverse(steps)
+            @htl("""<button class="prev-$step"> -$step </button>""") for step in reverse(steps)
         ))
-        <input  id="curr-day"/>
+        <input/>
         $((
-            @htl("""<button id="next-$step"> +$step </button>""") for step in steps
+            @htl("""<button class="next-$step"> +$step </button>""") for step in steps
         ))
-        <button id="last-btn"> last </button>
+        <button class="last-btn"> last </button>
 
         <script>
         const div = currentScript.parentElement;
-        const inputField = div.querySelector("#curr-day");
+        const inputField = div.querySelector("input");
 
         // min and max day allowed
         const MIN = $(min);
@@ -72,14 +72,14 @@ function dayPicker(min::Int, max::Int, steps::Vector{Int}=[1])
 
         /*** buttons ***/
 
-        ["#first-btn", "#last-btn"].forEach((s, i) => {
+        [".first-btn", ".last-btn"].forEach((s, i) => {
             div.querySelector(s).addEventListener("click", e => {
                 const newVal = i == 0 ? MIN : MAX;
                 setValue(newVal);
             });
         });
 
-        $(btnIDs).forEach((s, i) => {
+        $(btnClasses).forEach((s, i) => {
             div.querySelector(s).addEventListener("click", e => {
                 const newVal = div.value + parseInt(e.target.innerText);
                 setValue(newVal);
@@ -127,12 +127,12 @@ and then reset it back to false after `timeout` milliseconds.
 """
 function booleanButton(text::String, timeout::Int=1000)
     @htl("""
-    <span id="bool-btn-wrapper">
-        <button id="bool-btn"> $(text) </button>
+    <span>
+        <button> $(text) </button>
 
         <script>
             const span = currentScript.parentElement;
-            const button = span.querySelector("#bool-btn");
+            const button = span.querySelector("button");
 
             span.value = false;
 
