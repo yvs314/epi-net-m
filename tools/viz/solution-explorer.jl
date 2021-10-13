@@ -24,7 +24,9 @@ produced by executing `m-core/sweep.m` in MatLab.
 to a different level will not be displayed.
 
 ---
-Authors: Kara Ignatenko, 2021
+Authors: Kara Ignatenko, 2021;
+		 Yaroslav Salii, 2021
+
 
 Changelog:
 - 2021-10-09  v.1.0: First complete version

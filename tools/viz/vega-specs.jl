@@ -1,5 +1,6 @@
 """
-Authors: Kara Ignatenko, 2021
+Authors:  Yaroslav Salii, 2021
+          Kara Ignatenko, 2021
 
 Contains VegaLite spec-generating functions to be used in visualizations.
 

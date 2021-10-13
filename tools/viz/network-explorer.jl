@@ -66,7 +66,8 @@ Edit the `fips` variable to modify the set of states that are included in the
 processing.
 
 ---
-Authors: Kara Ignatenko, 2021
+Authors: Kara Ignatenko, 2021;
+	     Yaroslav Salii, 2021
 
 Changelog:
 - 2021-10-09 v.1.0: First complete version
