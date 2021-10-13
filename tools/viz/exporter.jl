@@ -5,6 +5,8 @@ Contains functions that help export VegaLite plots to a file.
 
 exporter.jl
 2021-09-30 v.0.1: First version
+2021-10-13 v.0.2: Remove redundant dispatching by file extension, as VegaLite.jl
+                  already has this functionality
 """
 module Exporter
 
