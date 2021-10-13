@@ -12,6 +12,8 @@ data-io.jl
 2021-08-24 v.0.3: renamed IO to DataIO to avoid confusion with any builtin
 2021-08-24 v.0.4: added heuristic to determine project root
 2021-09-08 v.0.5: add infect2! to try to infect tract 41~001~950100 or thereabouts
+2021-10-13 v.0.6: automatically normalize single-digit FIPS codes without a leading zero
+
 """
 module DataIO
 
@@ -21,6 +23,7 @@ export fn,
        rdAPs,
        rdBTS,
        rdTidyWfsByFIPS,
+       normalizeOneDigitFIPS,
        rdFluteTract,
        rdWholeUS,
        censorFluteTractByFIPS,
@@ -160,6 +163,18 @@ function rdTidyWfsByFIPS(fipss::Array{String,1}=["41","53"], tracts::DataFrame=D
 
     return wfs5
 end
+
+"""
+Ensure that the FIPS code `fips` has the canonical form by prefixing it with a 0
+if it is one digit long.
+"""
+function normalizeOneDigitFIPS(fips::String)
+    if length(fips) == 1
+        return "0" * fips
+    end
+    fips
+end
+
 
 """
 Return `wfs` excluding the commutes for tracts not present in `ns`.

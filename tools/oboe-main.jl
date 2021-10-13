@@ -20,6 +20,7 @@ oboe-main.jl
 2021-07-19  v.1.0 fixed issue where unmatched tract IDs led to a crash
 2021-08-17  v.1.1 updated to support the new API of Oboe.jl and FromFile module import
 2021-09-08  v.1.2 isolate aggregation/partition function pair dispatch
+2021-10-13  v.1.3 automatically normalize single-digit FIPS codes without a leading zero
 """
 
 module OboeMain
@@ -68,6 +69,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
         error("Output data for $iname already exists, use the force flag to overwrite")
     end
     println("Preparing the tract, air travel, and commute data...")
+    fips = map(Oboe.normalizeOneDigitFIPS, fips) # convert FIPS codes such as "1" to "01"
     if useNW
         iFluteFile="a~NW" * Oboe.fn.sep * Oboe.fn.fltInitSuff
         #read the census tracts corresponding to the name provided in the args
