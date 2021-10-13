@@ -6,12 +6,27 @@ Contains VegaLite spec-generating functions to be used in visualizations.
 
 vega-specs.jl
 2021-09-22 v.0.1: First modular version
+2021-09-28 v.0.2: Add more specs for network visualization
+2021-10-09 v.0.3: Add specs for the average infected rate line plot
+2021-10-13 v.0.4: Drop the leading 0's of FIPS codes to resolve the inconsistency
+                  between how FIPS codes are represented in Oboe vs. VegaDatasets
 """
 module VegaSpecs
 
 using VegaLite, VegaDatasets, DataFrames
 
 us10m = dataset("us-10m")
+
+"""Utility function to drop the leading zero of a FIPS code."""
+function dropLeadingZero(str::String)
+    if startswith(str, "0")
+        str[2:length(str)]
+    else
+        str
+    end
+end
+
+normalize(arr::AbstractArray) = map(dropLeadingZero, arr)
 
 """
 Plot side-by-side chloropleths comparing the Z and Z0 values in the solution `sol`
@@ -122,7 +137,7 @@ pltCanvasSte(fips::Vector{String}) = @vlplot(
         }
     },
     transform=[{
-            filter={field =:id,oneOf = fips}
+            filter={field =:id,oneOf = normalize(fips)}
             }],
     projection={type=:albersUsa},
 )
@@ -162,7 +177,7 @@ pltBoundarySte(fips::Vector{String}) = @vlplot(
         }
     },
     transform=[{
-            filter={field =:id,oneOf = fips}
+            filter={field =:id,oneOf = normalize(fips)}
             }],
     projection={type=:albersUsa},
 )
