@@ -37,7 +37,7 @@ begin
 	Exp = includes.Exporter
 	#====PREP==THE==DATA=================#
 
-	fips = ["41","53"]
+	fips = map(Oboe.normalizeOneDigitFIPS, ["6", "41", "53"])
 
 	nsRaw = Oboe.censorFluteTractByFIPS(Oboe.rdWholeUS(), fips)
 
