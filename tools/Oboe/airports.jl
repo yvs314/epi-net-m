@@ -9,6 +9,7 @@ airports.jl
 2021-08-17 v.0.2: Removed dependency on io.jl, created new func getProcessedAPs
                   to make the control flow explicit rather than rely on default arguments
 2021-08-19 v.0.3: Made min_annual_boardings an optional kwarg for getProcessedAPs 
+2021-09-28 v.0.3.1: fix mkFlightMx2 using a not-quite-string which caused issues in visualization
 """
 module Airports
 using DataFrames
@@ -77,7 +78,9 @@ function mkFlightMx2(fs::DataFrame; daily=false::Bool,babble=false::Bool, init_t
     #make a sorted list of ALL the APs in `fs`
     allAPs = sort( (fs.ORG |> unique) ∪ (fs.DST |> unique))
     #delegate to the method with EXPLICIT ground set (`iretAPs`); with retaintours = true
-    return mkFlightMx2(fs, allAPs; daily=daily,babble=babble,init_to=init_to,retaintours=true)
+    #note the map(String, allAPs) - this is because DataFrames uses an internal
+    # string-like type that causes problems down the line
+    return mkFlightMx2(fs, map(String, allAPs); daily=daily,babble=babble,init_to=init_to,retaintours=true)
 end
 
 """
