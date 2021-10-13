@@ -17,12 +17,6 @@ thisPath = splitpath(@__DIR__)
 projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
 const figDir = joinpath(projRoot..., "fig")
 
-const converters = Dict(
-    "pdf" => spec -> VegaLite.convert_vl_to_x(spec, "vg2pdf"),
-    "svg" => VegaLite.convert_vl_to_svg
-)
-const defaultConverter = VegaLite.our_json_print
-
 timestamp() = Dates.format(Dates.now(), "yy-mm-dd-HMS")
 
 """
@@ -30,13 +24,10 @@ Export `spec` into a file named `prefix-timestamp.extension`
 If `extension` is `"pdf"` or `"csv"`, the spec will be plotted
 into the corresponding format. Otherwise a JSON VegaLite spec will be output.
 """
-function savePlot(prefix::AbstractString, spec::VegaLite.VLSpec, extension::AbstractString)
+function savePlot(prefix::AbstractString, spec::VegaLite.VLSpec, extension::AbstractString=".html")
     path = joinpath(figDir, prefix * timestamp() * "." * extension)
 
-    io = open(path, "w")
-    data = get(converters, extension, defaultConverter)(spec)
-    write(io, data)
-    close(io)
+    save(path, spec)
 
     path
 end
