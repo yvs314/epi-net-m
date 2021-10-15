@@ -107,7 +107,6 @@ end
 # ╔═╡ d84d3340-9fec-470e-9717-4261c5c0cce2
 if exportingEnabled
 	Exp.savePlot("$(selName)_", selectedPlot, format)
-	Exp.notify("ayo")
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
