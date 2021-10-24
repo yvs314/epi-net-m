@@ -26,8 +26,10 @@
 % 2021-03-25 v.1.2 add ZZ: abs. infected at T and cZR: abs. Z + R (T)
 %            v.1.2.1 add norm-to-1-node output avgOut [z01; z11; avg_u]
 % 2021-10-04 v.1.2.2 rehaul avgOut to output as a CSV with header
+% 2021-10-24 v.1.2.3 add control effort output to _-frac.csv
 
 %% TODO
+% 0 combine all output into a single file
 % 1 debug output (time, errors, J, &c) to a log file
 % 2 switch to tArr instead of “magical numbers” 0:T / T:0 / [0 T]
 % 3 set asserts(condition,"error message") instead of comment caveats
@@ -299,11 +301,14 @@ cns = [arrayfun( @(n) 's'+string(n),0:T) ...
      arrayfun( @(n) 'z'+string(n),0:T) ...
      arrayfun( @(n) 'r'+string(n),0:T)];
 
+cns_u = [ arrayfun( @(n) 'u'+string(n),0:T) ]; %col names for controls
+cns_frac_u = horzcat(cns,cns_u); %combined frac with control
+
 %col. names for per-node average infected-null, infected-opt, control effort
 cns_avgc = ["zNull_avg","z_avg","u_avg"];
  
 %construct the solution output tables
-otfrac = horzcat(tIVs,array2table([s z r],'VariableNames',cns));
+otfrac = horzcat(tIVs,array2table([s z r u],'VariableNames', cns_frac_u) ); %adding the controls here
 otfrac0 = horzcat(tIVs,array2table([sNull zNull rNull],'VariableNames',cns));
 otabs = horzcat(tIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
 otabs0 = horzcat(tIVs,array2table([sNull zNull rNull] .* N,'VariableNames',upper(cns)));
