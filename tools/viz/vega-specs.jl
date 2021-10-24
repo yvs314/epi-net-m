@@ -10,6 +10,7 @@ vega-specs.jl
 2021-10-09 v.0.3: Add specs for the average infected rate line plot
 2021-10-13 v.0.4: Drop the leading 0's of FIPS codes to resolve the inconsistency
                   between how FIPS codes are represented in Oboe vs. VegaDatasets
+2021-10-24 v.0.5: Add a spec for control effort choropleth
 """
 module VegaSpecs
 
@@ -74,6 +75,58 @@ function pltZOptVsNullByCty(sol::DataFrame, day::Int, median::Float64)
 end
 
 """
+Plot a control effort by-county choropleth map for the given `day`
+The control effort u has a blue-to-purple scheme and [0,1] scale
+"""
+function pltCtrlByCty(sol::DataFrame, day::Int)
+    day2col_u(day::Int) = "u" * string(day) #picking the control column name for the day
+    u_today = day2col_u(day) #compute the requisite column name
+    @vlplot(
+        :geoshape,
+        data={
+            values=us10m,
+            format={
+                type=:topojson,
+                feature=:counties
+            }
+        },
+        transform=[{
+            lookup=:id,
+            from={
+                data=select(sol, ["id", u_today]), #INSERT DF HERE
+                key=:id,
+                fields=[u_today]
+            }
+        }],
+        projection={
+            type=:albersUsa
+        },
+        encoding={
+            color={
+                field= u_today,
+                type=:quantitative,
+                scale={
+                    domainMin = 0,
+                    domainMax = 1, #median no. infected
+                    scheme=:bluepurple
+                }
+            }
+        }
+    )
+end
+
+# """
+# ISSUES: botches the color scale properties
+# Plot 3 side-by-side chloropleths comparing the u, Z, and Z_Null values in the solution `sol`
+# for a given day `day`.
+# For Z and Z_Null, the `median` as the centre of the Z and Z_Null colour scale.
+# The control effort u is displayed to the left, with green scheme and [0,1] scale
+# """
+# function pltCtrl_ZOpt_ZNull_ByCty(sol::DataFrame, day::Int, median::Float64)
+#     @vlplot() + [pltCtrlByCty(sol,day), pltZOptVsNullByCty(sol,day,median)] 
+# end
+
+"""
 Plot the average infection rate Z (for both the optimal case
 and the null case) and the control effort U as functions
 of time.
@@ -100,27 +153,6 @@ pltAvgInfdCtrl(long_avgc::DataFrame) = @vlplot(
     },
 )
 
-# these plot each line separately
-pltAvg_zNull(ss::DataFrame) = @vlplot(
-    data = ss.avgc,    
-    :line,
-    x=:day,
-    y=:zNull_avg
-)
-
-pltAvg_zOpt(ss::DataFrame) = @vlplot(
-    data = ss.avgc,    
-    :line,
-    x=:day,
-    y=:z_avg
-)
-
-pltAvg_ctrl(ss::DataFrame) = @vlplot(
-    data = ss.avgc,    
-    :line,
-    x=:day,
-    y=:u_avg
-)
 
 pltCanvasSte(fips::Vector{String}) = @vlplot(
     mark={

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.0
+# v0.16.4
 
 using Markdown
 using InteractiveUtils
@@ -30,6 +30,7 @@ Authors: Kara Ignatenko, 2021;
 
 Changelog:
 - 2021-10-09  v.1.0: First complete version
+- 2021-10-24  v.1.1: Add control effort choropleth 
 
 """
 
@@ -101,14 +102,16 @@ try
 	#get rid of irrelevant (for now) data by only selecting the Z values
 	a_clean = select(ss.a, "id", r"^Z")
 	a0_clean = select(ss.a0, "id", r"^Z")
+	f_clean = select(ss.f, "id", r"^u")
 	
 	#toss everything into one dataframe to simplify rendering
 	#for the null case, add _NULL to the column names
 	global sol = innerjoin(a_clean, a0_clean, on="id", renamecols=("" => "_NULL"))
+	#add *control effort* data; f_clean should be fine too
+	global sol2 = innerjoin(sol, f_clean, on="id") 
 	
-		#=
-	"-avg.csv" has 3 columns: z_avg; zNull_avg; u_avg, and per-day rows. Gotta fix that in MATLAB. 
-	=#
+	
+	#"-avg.csv" has 3 columns: z_avg; zNull_avg; u_avg, and per-day rows. 
 	#insert day numbers
 	insertcols!(ss.avgc,1,:day => 0:(nrow(ss.avgc)-1))
 	global long_avgc = stack(ss.avgc,[:z_avg,:zNull_avg,:u_avg],variable_name=:symbol)
@@ -123,6 +126,12 @@ end
 
 # ╔═╡ cc533197-dbe3-41b6-8478-64f82da52ba8
 md"Day selected: $day"
+
+# ╔═╡ 8398bb71-aa8e-42b6-b3e3-c08ca57ee5b0
+begin
+	plt_u = Specs.pltCtrlByCty(sol2,day)
+	UI.vegaEmbed(plt_u)
+end
 
 # ╔═╡ a6a64f62-316a-48f5-bd5c-0eebff53022d
 begin
@@ -757,7 +766,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
+# ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
 # ╟─e598c897-61bf-4bc2-91db-e225362f5606
 # ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
@@ -765,7 +774,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═6a2ca31f-716c-48f4-8e1a-70e3c033358b
 # ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
 # ╠═dcabd381-1316-449b-9ebf-68410ee6e3fd
-# ╟─a6a64f62-316a-48f5-bd5c-0eebff53022d
+# ╠═8398bb71-aa8e-42b6-b3e3-c08ca57ee5b0
+# ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
 # ╟─f4bf1143-c315-4521-b19b-06bf0373828a
 # ╠═86ddda30-351d-41f6-94b2-4c84dea08448
 # ╠═bfd9753c-323a-4a82-b5e6-057e7519ed6c
