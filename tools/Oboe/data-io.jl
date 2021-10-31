@@ -168,7 +168,7 @@ end
 Ensure that the FIPS code `fips` has the canonical form by prefixing it with a 0
 if it is one digit long.
 """
-function normalizeOneDigitFIPS(fips::String)
+function normalizeOneDigitFIPS(fips::AbstractString)
     if length(fips) == 1
         return "0" * fips
     end
