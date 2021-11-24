@@ -21,6 +21,7 @@ oboe-main.jl
 2021-08-17  v.1.1 updated to support the new API of Oboe.jl and FromFile module import
 2021-09-08  v.1.2 isolate aggregation/partition function pair dispatch
 2021-10-13  v.1.3 automatically normalize single-digit FIPS codes without a leading zero
+2021-11-23  v.1.4 move dispatchAggPart to aggregation.jl, closer to the funcs it dispatches
 """
 
 module OboeMain
@@ -107,7 +108,7 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     
 
     println("Processing started. Aggregation mode [$agg] selected.")
-    aggnpart = dispatchAggPart(agg) #dispatch the aggregate/partition function pair
+    aggnpart = Oboe.dispatchAggPart(agg) #dispatch the aggregate/partition function pair
     println("Aggregating")
     @time aggregated = ns2 |> aggnpart[1] #aggregate as selected by dispatcher
     println("Partitioning")
@@ -127,21 +128,6 @@ function processOboe(name, agg; fips=fipsAll, useNW=false, force=false)
     println("Writing -init.csv and -trav.dat")
     Oboe.writeMe(iname,iv,psgMx + cmtMx)
     println("All done. Terminating.")
-end
-
-"Dispatch aggregation and partition functions by aggregation type [tra | cty | ap | ste]"
-function dispatchAggPart(agg::String)
-    if agg == "tra"
-        return (identity,Oboe.partByTra)
-    elseif agg == "cty"
-        return (Oboe.aggByCty,Oboe.partByCty)
-    elseif agg == "ap"
-        return (Oboe.aggByAP,Oboe.partByAP)
-    elseif agg == "ste"
-        return (Oboe.aggBySte,Oboe.partBySte)
-    else
-        error("Unknown aggregation requested. Terminating.\n")
-    end
 end
 
 end #end module OboeMain

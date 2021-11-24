@@ -7,6 +7,7 @@ Submodule responsible for grouping and aggregating tracts to various levels.
 aggregation.jl
 2021-08-13 v.0.1 First modular version
 2021-09-09 v.0.2 add dummy partByTra to maintain dispatch interface
+2021-11-23 v.0.3 move dispatchAggPart here
 """
 module Aggregation
 using DataFrames
@@ -18,7 +19,8 @@ export aggByCty,
        partByTra,
        partByCty,
        partByAP,
-       partBySte
+       partBySte,
+       dispatchAggPart
 
  #NB! :Name is a String
  """Return a name-generating function for partitions based on the column names `nms`"""
@@ -125,6 +127,21 @@ ns MUST have [:Name]; ix:: Name => partition_index
 """
 function revexplPart(dict::Dict, ns::DataFrame,ix::Dict)
     ( ns.Name[v] => ix[k]  for k ∈ keys(dict) for v ∈ dict[k]) |> Dict
+end
+
+"Dispatch aggregation and partition functions by aggregation type [tra | cty | ap | ste]"
+function dispatchAggPart(agg::String)
+    if agg == "tra"
+        return (identity,partByTra)
+    elseif agg == "cty"
+        return (aggByCty,partByCty)
+    elseif agg == "ap"
+        return (aggByAP,partByAP)
+    elseif agg == "ste"
+        return (aggBySte,partBySte)
+    else
+        error("Unknown aggregation requested. Terminating.\n")
+    end
 end
 
 end
