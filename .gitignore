@@ -1,6 +1,7 @@
 # Matlab and other temporary files #
 #######################
 *.m~
+*.asv
 *.swp
 
 #ignore Jupyter NB temporaries
