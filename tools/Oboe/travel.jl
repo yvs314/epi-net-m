@@ -17,7 +17,8 @@ using Statistics,LinearAlgebra #for talkDnsy()
 @from "aggregation.jl" using Aggregation: revexplPart
 
 export mkCmtMx,
-       mkPsgMx
+       mkPsgMx,
+       talkDnsy
 
 #--------COMMUTER---FLOW---MATRIX--------------#
 """
