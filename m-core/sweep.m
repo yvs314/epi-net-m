@@ -10,8 +10,8 @@
         % $NAME_$SIZE-init.csv holds initial conditions; 
         % $NAME_$SIZE-trav.dat holds daily travelers matrix (air passengers +
         % commuters)
-        %sample: a~NW~cty_75[-init.csv,-trav.dat], 75 counties in OR and WS
-    % Output tables: $NAME_$SIZE-$CPG-[abs | abs0 | frac | frac0].csv
+        %sample: NWcty_75[-init.csv,-trav.dat], 75 counties in OR and WS
+    % Output tables: $NAME_$SIZE-[abs | abs0 | frac | frac0 | avg | log].csv
 % 2021-03-04 v.0.1 up to reading IVs and travel matrix
 % 2021-03-08 v.0.2 numeric solutions for state & co-state eqs
 % 2021-03-08 v.0.3 control computed from state & costate values
@@ -50,6 +50,15 @@ end
 
 fnSep="-"; %use - to separate file name fields
 fnSubSep="_"; %use _ to subdivide file name fields
+
+
+%YS: using regexp/extract as opposed to split by fnSep="-" because
+%it's too complicated to extract the first element of split's return array
+%in an anonymous function
+
+%instance name as regexp pattern; 
+rpInst = regexpPattern('[A-Z]+[0-9]*(tra|cty|ap|ste)_[0-9]+');
+
 IV_suff="init.csv"; %all instances IVs end like this 
 trav_suff="trav.dat"; %all instances' travel data end like this
 
@@ -106,9 +115,10 @@ boundlax = false;
 %boundlax = true; %enforce lax is within bounds
 %% Set Problem Instance Name
 
-% read all instances IV files names' into a `struct` (see .name)
-% allInst = dir(fullfile(instDir,'*-init.csv')); %array o' structs
-% allPathsIV = ls(fullfile(instDir,'*-init.csv')); %with full path names
+% read all instances IV files names' into array-of-structs
+sAllIVs = dir(fullfile(instDir,'*-init.csv')); %array o' structs
+cellAllIVs = extractfield(sAllIVs,'name'); %all IV file names (cell array)
+cellAllInst = cellfun(@(s) extract(s,rpInst),cellAllIVs); %all instance names
 
 %inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
 inst="NWcty_75"; %by-county OR + WS, with flights & commute
@@ -139,7 +149,9 @@ inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst = "CActy_58";
 %inst = "CAtra_7038";
 
-%for inst = ["NWcty_75" "NWap_23" ] it works!
+% for inst = cellAllInst %it works!
+%     disp(pathIV(inst));
+% end
 
 %% Read Problem Instance (initial values, populations, and travel matrix)
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
@@ -201,12 +213,13 @@ tablogTypes = ["uint32","duration","duration",...
     "double","double","double","double",...
     "double","double","double",...
     "double","double","double"];
-    
+%consider tcm::double to prevent truncation of ms
+
 tablogSize=[1 size(tablogNames,2)];
 tablog = table('Size',tablogSize,'VariableType',tablogTypes,'VariableNames',tablogNames);
 tablog.tcm(1) = seconds(0);
 %% Forward-Backward Sweep Loop
-tic
+tSweepStart = tic;
 while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
    % fprintf('Loop no. %d\n',ct); 
     ct = ct+1; %%inc the iteration counter
@@ -290,7 +303,7 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %fill out the log, to be added as a row 
     %tablogNames = ["Iter","tcm","tdt","J","cZR","RR","ZZ","hrerr_u","hrerr_x","hrerr_lax","rerr_u","rerr_x","rerr_lax"];
     currLog = {ct,tablog.tcm(1)+tdtsec,tdtsec,...
-        J,cZR,RR,ZZ,hrerr_u,hrerr_x,hrerr_lax,rerr_u,rerr_x,rerr_lax};
+        J,round(cZR,4),round(RR,4),round(ZZ,4),hrerr_u,hrerr_x,hrerr_lax,rerr_u,rerr_x,rerr_lax};
     %KEEP NULL-CONTROL solution
     if(ct == 1) %first iteration-special
         tablog(1,:) = currLog; 
@@ -307,15 +320,16 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
         error("That probably wouldn't converge. Terminating.");
     end
 end %next sweep iteration
-toc
+tSweepEnd = toc(tSweepStart);
+
 %% Evaluating the sweep results
+fprintf("Sweep done in "); disp(seconds(tSweepEnd));
 fprintf('\n J / JNull = %4.4f   improved by %4.4f\n',J / JNull, 1 - J/JNull);
 fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
     ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
 
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
-
 
 %normalize to 1-node model: sum all absolutes, and divide by pop
 A1 = @(c) sum( c .* N ); 
