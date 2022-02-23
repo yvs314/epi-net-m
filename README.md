@@ -1,22 +1,32 @@
 # epi-net-m
-Data Engineering for and Numerical Implementation of Optimal Control of Large-Scale Metapopulation Network SIR
 
-The **Data Engineering** part is found in `/tools` and called “Oboe”; it is written in Julia. Oboe loads the tract populations, commute, and air travel data
-from `data/by-tract`; uses this data to generate a travel model aggregated to the given level; and then
+## A Benchmarking Framework for Optimal Control over Network Dynamic Systems based on a Metapopulation Epidemic Model
+With **Data Engineering** to generate a **Benchmark**, a proof-of-concept **Numerical Solver** for an optimal control problem over Network SIR, and **Visualization Tools** to map infection and control effort on [choropleths](https://en.wikipedia.org/wiki/Choropleth_map). The _optimal control problem_ is finite-horizon Bolza over a nonlinear system with per-node _social distancing_ controls and time-discounted _running cost_, square in control and infections. It generalizes [(El Ouardighi, Khmeltinsky, Sethi, 2022)](https://doi.org/10.1111/poms.13641) to the network dynamic system case, with omission of health infrastructure tracking.
+
+
+
+The **Data Engineering** part is in `/tools` and called “Oboe”; it is written in Julia. Oboe loads the tract populations, commute, and air travel data
+from `/data/by-tract`; uses this data to generate a travel model aggregated to the given level; and then
 outputs a `<name>-trav.dat` matrix containing the total daily travellers between each subdivision 
-and a `<name>-init.csv` table containing the initial values for the SIR model.
+and a `<name>-init.csv` table containing the “patient zero” initial values for the SIR model. These serve as a benchmark set.
 
-The **Numerics** is found in `/m-core` and written in Matlab. It uses the _forward-backward sweep_ method to solve a _two-point boundary value problem_ (TPBVP) for a network SIR model instantiated with `<name>-trav.dat` and `<name>-init.csv`. The entry point is `/m-core/sweep.m`. 
-🚧 A Julia version is under construction 🚧
+The **Benchmark** is in `/data/by-tract`, with some snapshots in [Releases](https://github.com/yvs314/epi-net-m/releases); these have between 2 and 9110 nodes. An instance `<name>` is made of two files,
+- `<name>-init.csv` with one row for each of the `n` nodes listing the populations and initial values of _susceptible_, _infected_, and _recovered_,  
+- `<name>-trav.dat` with `n×n` matrix of daily travelers between the nodes
+
+The **Numerics** is in `/m-core` and written in Matlab. It uses the _forward-backward sweep_ method to solve a _two-point boundary value problem_ (TPBVP) for a network SIR model instantiated with `<name>-trav.dat` and `<name>-init.csv`. The entry point is `/m-core/sweep.m`. 
+🚧 A Julia version may or may not be under construction 🚧
+
+The **Visualization** is in `/tools/viz` and based on [VegaLite](https://vega.github.io/vega-lite/)'s Julia interface. The VegaLite schemas generate _county-level_ choropleths for infection incidence and control effort.
 
 
-CAVEAT: all data and notebooks are stored with [Git LFS](https://git-lfs.github.com/). If after cloning the repository or downloading its contents, instead of expected file content, you see something like this
+CAVEAT: all data and Jupyter notebooks are stored with [Git LFS](https://git-lfs.github.com/). If after cloning the repository or downloading its contents, instead of expected file content, you see something like this
 ```
 version https://git-lfs.github.com/spec/v1
 oid sha256:9e93547e554054a1678f4863fd62bac1577dd6eea6b2efce0d265b16d6e0f438
 size 5208
 ```
-then your Git LFS installation did not work. See the [Releases](https://github.com/yvs314/epi-net-m/releases) if you are not in the mood for Git LFS.
+then your Git LFS installation did not work. Get the benchmark from [Releases](https://github.com/yvs314/epi-net-m/releases) if you are not in the mood for Git LFS.
 
 ---
 ## Citation
@@ -86,20 +96,13 @@ Open `/m-core/sweep.m` in MATLAB. Review the _parameters section_ and the reques
 
 ### Solution export
 Automated, look into `./out` after running `sweep.m`.
-Four sets of `.csv` are produced, giving each simulation _day_'s population of each node's compartments, both in absolute and fractional forms for _optimal control_ and _null control_. The _per-node_ **control effort** is exported in `NAME-frac.csv` as `uX` columns, where `X` is the simulation day's number.
+Four sets of `.csv` are produced, giving each simulation _day_'s population of each node's compartments, both in absolute and fractional forms for _optimal control_ and _null control_. The _per-node_ **control effort** is exported in `<name>-frac.csv` as `uX` columns, where `X` is the simulation day's number. In addition, a `<name>-log.csv` is emitted, which describes the forward-backward sweep iterations.
 
 
-### Figure export
-Use the routines in [`/tools/viz`](https://github.com/yvs314/epi-net-m/tree/master/tools/viz) to produce _choropleth maps_ (only available for county-level agregation). 
-The in-MATLAB routines are
-- `figStacked.m` _stacked plot_ `z+s+r` for a given node
+### Figures 
+- `figStacked.m` _stacked plot_ of `z+s+r` for a given node
 - `figSimplex.m` all the nodes' trajectories in the `(z,s)` simplex (_% infected_, _%susceptible_)
 - `figTrajectory.m` all the nodes' trajectories for a given _compartment_: susceptible `s`, infected `z`, or recovered `r`
-
-
-### Compatibility notes
-
-Requires at least **MATLAB R2019** due to reliance on `tiledlayout` for handling subplots
 
 --- 
 ## Usage: Visualization
