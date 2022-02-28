@@ -18,8 +18,10 @@
         %sample: NWcty_75[-init.csv,-trav.dat], 75 counties in OR and WS
     % Output tables: as input, to /data/inst-100K
 % 2022-02-23 v.0.0 chiseling away the unnecessary
+% 2022-02-28 v.0.1 first and last past threshold rough-in
 
 %% TODO
+% ms.0.1.1: transparently ignore the isolated nodes with no infection
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
@@ -29,7 +31,7 @@ ofigDir = "../fig"; %write the output figures and tables here
 if(~exist(ofigDir,"dir"))
     mkdir(ofigDir); %make sure it exists
 end
-otabDir = "../data/inst-100K"; %write the output figures and tables here
+otabDir = "../data/inst-100K"; %write the output tables here
 if(~exist(otabDir,"dir"))
     mkdir(otabDir); %make sure it exists
 end
@@ -75,6 +77,11 @@ gamma  = 0.0437; % 1/ (beta/R_0); R_0 = beta / gamma (idem)
 %1/gamma = 22.904 mean time to recovery
 %gamma = 1/8.3; %compat with older
 
+%THRESHOLDS etc.
+
+nrm = 10^-5; % target 1 in 100K infected
+%
+
 
 %RUNNING COSTS      l for lockdown (control)
 c = 0.00200; %running cost of infections; mean(c_1=100, c_2=300, c_3=200)
@@ -88,7 +95,7 @@ r2 = 0.002; %lockdown control fatigue rate
 %r2 = 0;
 
 %%TIME
-T = 500; %time is [0,T], in days; default to 500 to hopefully reach endemic
+T = 1000; %time is [0,T], in days; default to 500 to hopefully reach endemic
 %tArr = 0:T that's the de facto usage
 
 %CONTROL bounds (for each component, at each time)
@@ -104,14 +111,14 @@ cellAllInst = cellfun(@(s) extract(s,rpInst),cellAllIVs); %all instance names
 %inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
 %inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst="NWap_23"; %by-airport OR + WS, with filghts & commute
-inst="NWste_2"; %by-state OR + WS, with flights & commute
+%inst="NWste_2"; %by-state OR + WS, with flights & commute
 
 %inst="WCTtra_9110"; %WCT is CA + OR + WS
 %inst="WCTcty_133";
 %inst="WCTap_52";
 %inst="WCTste_3";
 
-%inst="ALLcty_3109";
+inst="ALLcty_3109";
 %inst="ALLap_417";
 %inst="ALLste_49";
 
@@ -163,6 +170,35 @@ A = Araw'; %easier to add one transpose here than in every equation
 % set its diagonal to pops N, then divide row-wise by N (traveling fracs)
 A = diag(iN)* (A - diag(A) + diag(N));
 %A = eye(n); %dumb debug: isolated nodes
+%A = ones(n,n); %dumber debug: homogeneous mixing
+
+%% Population Stats
+ Nq20 = quantile(N,20); Nq10 = quantile(N,10); Nq4 = quantile(N,4);
+% q1arr = [Nq20(1), Nq10(1),Nq4(1)];
+% qNumarr = [20, 10, 4];
+% tabpopNames = ["q20:1","#q20:1","%q20:1","q10:1","#q10:1","%q10:1","q4:1","#q4:1","%q4:1"];
+% tabpopTypes = repmat(["double","uint16","double"], [1 floor(size(tabpopNames,2) / 3)]);
+% tabpopSize = [1 size(tabpopNames,2)];
+% 
+% tabpop = table('Size',tabpopSize,'VariableTypes',tabpopTypes,'VariableNames',tabpopNames);
+% mkq1name = @(q) "Nq"+string(q)+"(1)";
+% mkq1stat = @(Q) Q+1;
+
+%sort(N(N < Nq10(1)))
+
+%find Redding AP (Calif.) in IVs
+% find(contains(tIVs.Name, 'RDD'))
+
+%% Log Setup
+% a `table`, to be written out as csv
+tablogNames = ["Inst","t_hms","t_ms",...
+    "pop","cZR","RR","ZZ"];
+
+tablogTypes = ["string","duration","double",...
+    "double","double","double","double"];
+    
+tablogSize=[1 size(tablogNames,2)];
+tablog = table('Size',tablogSize,'VariableType',tablogTypes,'VariableNames',tablogNames);
 
 %% Run Initialization
 
@@ -179,39 +215,21 @@ ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 %MISC
 % delta = 1E-3; %min. relative error for norms of u,x,lax in stopping conditions
 % ct = 0; %set the loop counter
-% opts = odeset('InitialStep',1); %ensure the 1st step is at most 1 day long
+opts = odeset('InitialStep',1,'AbsTol',1e-9,'RelTol',1e-6); %ensure the 1st step is at most 1 day long
 
 %Run Flags
 flg.computeCostate = 0;
 flg.computeObjval = 0;
-%% Sweep Log Setup
-% a `table`, to be written out as csv
-tablogNames = ["Iter","tcm","tdt",...
-    "J","cZR","RR","ZZ"];
-
-tablogTypes = ["uint32","duration","duration",...
-    "double","double","double","double"];
-    
-%consider tcm::double to prevent truncation of ms
-
-tablogSize=[1 size(tablogNames,2)];
-tablog = table('Size',tablogSize,'VariableType',tablogTypes,'VariableNames',tablogNames);
-tablog.tcm(1) = seconds(0);
 %% Compute the Dynamics
-tNumdynStart = tic;
-
-    tIterStart = tic; %start the iteration stopwatch
-    
-    %store the previous loop's stuff
-    oldu = u; ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
-    oldx = x; oldlax = lax; 
+tNumdynStart = tic;    
     
     %STATE
     ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
    % disp('Run ode45 on IVP for state x---forwards from 0 to T')
     x_sln = ode45(ftx1, [0 T], x(:,1),opts);
     x = deval(x_sln, 0:T );
-
+    tStateDynDone = toc(tNumdynStart); tHMS = seconds(tStateDynDone);
+    
     %COSTATE
     if (flg.computeCostate)
         gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
@@ -227,9 +245,12 @@ tNumdynStart = tic;
      %   disp('Compute the objective function J(u,x,T)');
         PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
         J = PsiT1 + integral(Lt1,0,T); %the objective function
+    else
+        J = 0;
     end
     %STATISTICS
     
+    tStatStart = tic;
     %recovered at day T
     RR_T = sum(N - (x(1:n,end) + x(n+1:end,end) ) .* N); 
     %infected at day T + recovered at day T: eff. all but susceptible at T
@@ -240,61 +261,102 @@ tNumdynStart = tic;
     %cumulative infected, including recovered, daily
     %repmat(N, [1,numel([0:T])] ) - x(1:n,:).* N
     
-    %ITERATION DONE
-    %record the iteration's duration
-    tIterEnd = toc(tIterStart); tdtsec = seconds(tIterEnd);
-    %fill out the log, to be added as a row 
-    %tablogNames = ["Iter","tcm","tdt","J","cZR","RR","ZZ"];
-    currLog = {ct,tablog.tcm(1)+tdtsec,tdtsec,...
-    J,round(cZR_T,4),round(RR_T,4),round(ZZ_T,4)};
-    %KEEP NULL-CONTROL solution
-    tablog(1,:) = currLog; 
-    xNull = x; laxNull = lax; JNull = J; ZZNull = ZZ_T; cZRNull = cZR_T;
-    sNull = xNull(1:n,:); zNull = xNull(n+1:end,:); rNull = (1 - sNull - zNull);
+    tStatDone = toc(tStatStart);
     
+    %LOG
+    currLog = {inst,tHMS,tStateDynDone,...
+    sum(N),round(cZR_T,4),round(RR_T,4),round(ZZ_T,4)};
+    
+    if (ismissing(tablog.Inst(1))) %detect if it's the first iteration
+        tablog(1,:) = currLog; %overwrite the dummy entry
+    else
+        tablog = [currLog; tablog]; %add the new entry on top of the log
+    end
     disp(tablog(1,:)); %show the current log
     
-tNumdynEnd = toc(tNumdynStart);
+%tNumdynEnd = toc(tNumdynStart);
 
 %% Evaluating the numerical solution
 
+
+
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
+S = s .* N; Z = z .* N; R = r .* N; cZR = Z + R;
+nrmZ = Z .* nrm; %count infected per 1/nrm, default per 10^5
+% find the first time tcol a node trow has above 1 in 1/nrm infected
+% [trow tcol] = find(nrmZ>1,1)
+% now make sure I do it for all columns
+% find it in first row
+% tcol = find(nrmZ(1,:) >1 , 1)
+% roll into an arrayfun?
+fndfirstaboveone = @(arr,node) find(arr(node,:) >1,1);
+ffaone = @(node) fndfirstaboveone(nrmZ,node);
+fndlastaboveone = @(arr,node) find(arr(node,:) >1,1,'last');
+flaone = @(node) fndlastaboveone(nrmZ,node);
 
-%normalize to 1-node model: sum all absolutes, and divide by pop
-A1 = @(c) sum( c .* N ); 
-a1 = @(c) A1(c) / sum(N);
-%make the absolutes
-%S = s .* N; Z = z.*N; R = r.*N; %multiply to get the absolute state
-%S01 = sum(sNull .* N); Z01 = sum(zNull .* N); R0 = sum(rNull .* N);
-s11 = a1(s); z11 = a1(z); r11 = a1(r); 
-s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
-avgOut = [z01; z11; sum(u) / n]'; %[total zNull; total z; avg u]
+fndfirstabovethr = @(arr,node,thr) find(arr(node,:) > thr,1);
+ffanrm = @(node) fndfirstabovethr(z,node,nrm);
+fndlastabovethr = @(arr,node,thr) find(arr(node,:) >thr,1,'last');
+flanrm = @(node) fndlastabovethr(z,node,nrm);
 
+%NB! for NWcty75, threshold was not universally reached 
+%NB! it should be OK for infection to drag longer in view of the network
+%find days when infected first go above and first go below the threshold
+arrFirstAbove = arrayfun(ffanrm, 1:size(nrmZ,1));
+arrLastAbove = arrayfun(flanrm, 1:size(nrmZ,1));
+%find the peak day (nb! peakVal in non-normalized, absolute persons)
+[arrPeakVal, arrPeakDay] = max(Z');
+%disp(arrFirstAbove');
+
+%some descriptive-like stats on the outbreak
+tabdesc = table;
+
+%consider adding tIVs.id, .Name
+tabdesc.pop = N;
+tabdesc.peak = arrPeakVal';
+tabdesc.peakFrac = arrPeakVal' ./ N;
+tabdesc.peakThresh = (arrPeakVal' ./ N) .* (1/nrm);
+tabdesc.start  = arrFirstAbove'; 
+tabdesc.peakDay = arrPeakDay'; 
+tabdesc.end = arrLastAbove';
+
+disp(tabdesc);
+
+% %normalize to 1-node model: sum all absolutes, and divide by pop
+% A1 = @(c) sum( c .* N ); 
+% a1 = @(c) A1(c) / sum(N);
+% %make the absolutes
+% %S = s .* N; Z = z.*N; R = r.*N; %multiply to get the absolute state
+% %S01 = sum(sNull .* N); Z01 = sum(zNull .* N); R0 = sum(rNull .* N);
+% s11 = a1(s); z11 = a1(z); r11 = a1(r); 
+% s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
+% avgOut = [z01; z11; sum(u) / n]'; %[total zNull; total z; avg u]
+% 
 
 %% Tabular output
 %column names for frac and abs tables (will be set to uppercase for abs)
-cns = [arrayfun( @(n) 's'+string(n),0:T) ...
-     arrayfun( @(n) 'z'+string(n),0:T) ...
-     arrayfun( @(n) 'r'+string(n),0:T)];
-
-%cns_u = [ arrayfun( @(n) 'u'+string(n),0:T) ]; %col names for controls
-%cns_frac_u = horzcat(cns,cns_u); %combined frac with control
-
-%col. names for per-node average infected-null, infected-opt, control effort
-cns_avgc = ["zNull_avg","z_avg","u_avg"];
- 
-%construct the solution output tables
-otabs = horzcat(tIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
-
-%construct the average output table
-otabavgc = array2table(avgOut, 'VariableNames',cns_avgc);
-%note that the log table is already constructed
-
-%write the solution output tables
-writetable(otabs,pathotabs(inst));
-%write the FBsweep iteration log table
-writetable(tablog,pathotlog(inst));
+% cns = [arrayfun( @(n) 's'+string(n),0:T) ...
+%      arrayfun( @(n) 'z'+string(n),0:T) ...
+%      arrayfun( @(n) 'r'+string(n),0:T)];
+% 
+% %cns_u = [ arrayfun( @(n) 'u'+string(n),0:T) ]; %col names for controls
+% %cns_frac_u = horzcat(cns,cns_u); %combined frac with control
+% 
+% %col. names for per-node average infected-null, infected-opt, control effort
+% cns_avgc = ["zNull_avg","z_avg","u_avg"];
+%  
+% %construct the solution output tables
+% otabs = horzcat(tIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
+% 
+% %construct the average output table
+% otabavgc = array2table(avgOut, 'VariableNames',cns_avgc);
+% %note that the log table is already constructed
+% 
+% %write the solution output tables
+% writetable(otabs,pathotabs(inst));
+% %write the FBsweep iteration log table
+% writetable(tablog,pathotlog(inst));
 
 %end %end this dumb instance name loop
 
