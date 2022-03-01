@@ -19,9 +19,8 @@
     % Output tables: as input, to /data/inst-100K
 % 2022-02-23 v.0.0 chiseling away the unnecessary
 % 2022-02-28 v.0.1 first and last past threshold rough-in
-
+% 2022-03-01 v.0.1.1 ignore isolated, sterile nodes in thresholds (set 0)
 %% TODO
-% ms.0.1.1: transparently ignore the isolated nodes with no infection
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
@@ -114,11 +113,11 @@ cellAllInst = cellfun(@(s) extract(s,rpInst),cellAllIVs); %all instance names
 %inst="NWste_2"; %by-state OR + WS, with flights & commute
 
 %inst="WCTtra_9110"; %WCT is CA + OR + WS
-%inst="WCTcty_133";
+inst="WCTcty_133";
 %inst="WCTap_52";
 %inst="WCTste_3";
 
-inst="ALLcty_3109";
+%inst="ALLcty_3109";
 %inst="ALLap_417";
 %inst="ALLste_49";
 
@@ -283,28 +282,28 @@ tNumdynStart = tic;
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
 S = s .* N; Z = z .* N; R = r .* N; cZR = Z + R;
-nrmZ = Z .* nrm; %count infected per 1/nrm, default per 10^5
+%nmZ = Z .* nrm; %count infected per 1/nrm, default per 10^5
 % find the first time tcol a node trow has above 1 in 1/nrm infected
 % [trow tcol] = find(nrmZ>1,1)
-% now make sure I do it for all columns
-% find it in first row
-% tcol = find(nrmZ(1,:) >1 , 1)
-% roll into an arrayfun?
-fndfirstaboveone = @(arr,node) find(arr(node,:) >1,1);
-ffaone = @(node) fndfirstaboveone(nrmZ,node);
-fndlastaboveone = @(arr,node) find(arr(node,:) >1,1,'last');
-flaone = @(node) fndlastaboveone(nrmZ,node);
 
-fndfirstabovethr = @(arr,node,thr) find(arr(node,:) > thr,1);
-ffanrm = @(node) fndfirstabovethr(z,node,nrm);
+%fndfstabovethr = @(arr,node,thr,direction) find(arr(node,:) > thr,1,direction);
+%ffanrm = @(node) fndfstabovethr(z,node,nrm,'first');
+
+fndfirstabovethr = @(arr,node,thr) find(arr(node,:) > thr,1) ;
+ffanrm = @(node) maybevalue(fndfirstabovethr(z,node,nrm),double(0));
 fndlastabovethr = @(arr,node,thr) find(arr(node,:) >thr,1,'last');
-flanrm = @(node) fndlastabovethr(z,node,nrm);
+flanrm = @(node) maybevalue(fndlastabovethr(z,node,nrm),double(0));
+
+%gotta exclude the IVs and isolated nodes
+nodeSet = 1:size(Z,1);
 
 %NB! for NWcty75, threshold was not universally reached 
 %NB! it should be OK for infection to drag longer in view of the network
 %find days when infected first go above and first go below the threshold
-arrFirstAbove = arrayfun(ffanrm, 1:size(nrmZ,1));
-arrLastAbove = arrayfun(flanrm, 1:size(nrmZ,1));
+arrFirstAbove = arrayfun(ffanrm, nodeSet);%,'UniformOutput',false);
+arrLastAbove = arrayfun(flanrm, nodeSet);%,'UniformOutput',false);
+%clean these two, extracting from cell array
+
 %find the peak day (nb! peakVal in non-normalized, absolute persons)
 [arrPeakVal, arrPeakDay] = max(Z');
 %disp(arrFirstAbove');
@@ -364,6 +363,17 @@ disp(tabdesc);
 heatmaplog=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn),'ColorScaling','log');
 heatmap1=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn));
 heatmap3 = @(u) heatmap(u,'GridVisible','off','Colormap',cool);
+
+%Return 0 when isempty or the value if it's not
+function maybevalue = maybevalue(val,emptysigil)
+    if(~isempty(val))
+        maybevalue = val;
+        return
+    else
+        maybevalue = emptysigil;
+        return 
+    end
+end
 
 %Hi, I'm the terminal cost in the objective J and I'm too small for a separate file
 function PsiT = PsiT(xT,T,r1,NN,k)
