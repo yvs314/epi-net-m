@@ -23,9 +23,6 @@
 %            v.0.1.2 abs + rel thresholding ( > nrm=10^-5 && > 1 person)
 % 2022-03-02 v.0.2 new IVs from start threshold at selected node
 %% TODO
-% done 1 provision tabulation of epidemic start nodes
-% 2 generate new initial values 
-% 3 run it all for this case
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
@@ -152,9 +149,10 @@ inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst = "CActy_58";
 %inst = "CAtra_7038";
 
-% for inst = cellAllInst %it works!
-%     disp(pathIV(inst));
 
+for inst = cellAllInst(16:16) %normally "NWste_2"
+    disp(pathIV(inst));
+%end
 
 %% Read Problem Instance (initial values, populations, and travel matrix)
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
@@ -354,19 +352,23 @@ else
     tabsummary = [rowsummary; tabsummary];
 end
 
-%% Make new IVs based on the state at tabsummary.start(1)
+%% Make and write new IVs based on the state at tabsummary.start(1)
 
 tabnewIVs = tabIVs;
 tabnewIVs.S_i = S(:,rowsummary.start);
 tabnewIVs.I_i = Z(:,rowsummary.start);
 tabnewIVs.R_i = R(:,rowsummary.start);
-%end %end for the big instance-wise loop
-
-
-%% Tabular output
 
 % write the new initial values
-writetable(tabnewIVs,pathNewIV(inst));
+%writetable(tabnewIVs,pathNewIV(inst));
+
+end %end for the big instance-wise loop
+
+%% Done inst-wise processing, work with overall info
+
+
+% write the summary
+%writetable(tabsummary,fullfile(otabDir,"compdyn-summary.csv"));
 
 % write the solution output tables
 % writetable(otabs,pathotabs(inst));
@@ -376,9 +378,6 @@ writetable(tabnewIVs,pathNewIV(inst));
 %end %end this dumb instance name loop
 
 %% AUXILIARY FUNCTIONS
-heatmaplog=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn),'ColorScaling','log');
-heatmap1=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn));
-heatmap3 = @(u) heatmap(u,'GridVisible','off','Colormap',cool);
 
 %Return 0 when isempty or the value if it's not
 function maybevalue = maybevalue(val,emptysigil)
