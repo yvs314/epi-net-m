@@ -16,7 +16,7 @@ fig/
 # Figures and Pictures #
 ######################
 # it's more proper to re-load the source and re-draw the pictures
-**/out
+**/out*
 *.eps
 *.pdf
 
