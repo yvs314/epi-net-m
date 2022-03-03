@@ -28,6 +28,7 @@
 % 2021-10-04 v.1.2.2 rehaul avgOut to output as a CSV with header
 % 2021-10-24 v.1.2.3 add control effort output to _-frac.csv
 % 2022-02-17 v.1.3   add iteration logging via _-log.csv (rough-in)
+% 2022-03-02 v.1.4   add multy-instance logging via "sweep-summary.csv"
 
 %% TODO
 % 0 combine all output into a single file
@@ -37,13 +38,16 @@
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
-%./data/by-tract is for problem instances (IVs + travel matrix)
-instDir="../data/by-tract";
+%./data/by-tract is default for problem instances (IVs + travel matrix)
+%instDir="../data/by-tract"; default
+instDir="../data/inst-100K";
+travDir="../data/by-tract";
 ofigDir = "../fig"; %write the output figures and tables here
 if(~exist(ofigDir,"dir"))
     mkdir(ofigDir); %make sure it exists
 end
-otabDir = "../out"; %write the output figures and tables here
+%otabDir = "../out"; %write the output tables here
+otabDir = "../out-100K"; %write the output tables here
 if(~exist(otabDir,"dir"))
     mkdir(otabDir); %make sure it exists
 end
@@ -64,7 +68,7 @@ trav_suff="trav.dat"; %all instances' travel data end like this
 
 %INPUT PATHS & FILENAMES
 pathIV= @(iname) fullfile(instDir,iname+fnSep+IV_suff); %path to the IVs
-pathTrav = @(iname) fullfile(instDir,iname+fnSep+trav_suff); %path to the travel data, if any
+pathTrav = @(iname) fullfile(travDir,iname+fnSep+trav_suff); %path to the travel data, if any
 
 %OUTPUT PATHS & FILENAMES
 pathotabs = @(iname) fullfile(otabDir,iname+"-abs.csv");
@@ -74,6 +78,10 @@ pathotfrac0 = @(iname) fullfile(otabDir,iname+"-frac0.csv"); %for the NULL contr
 pathotavg = @(iname) fullfile(otabDir,iname+"-avg.csv"); %all averaged
 %LOG FILE, a CSV with a line for each iteration
 pathotlog= @(iname) fullfile(otabDir,iname+"-log.csv"); 
+%SUMMARY, with all 
+pathotsummary = fullfile(otabDir,"sweep-summary.csv");
+
+tabsummary = table; %empty table, one row per instance
 
 %% Model Parameters
 % these follow (El Ouardighi, Khmelnitsky, Sethi, 2020)
@@ -121,7 +129,7 @@ cellAllIVs = extractfield(sAllIVs,'name'); %all IV file names (cell array)
 cellAllInst = cellfun(@(s) extract(s,rpInst),cellAllIVs); %all instance names
 
 %inst="NWtra_2072"; %by-tract OR + WS, with flights & commute
-inst="NWcty_75"; %by-county OR + WS, with flights & commute
+%inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst="NWap_23"; %by-airport OR + WS, with filghts & commute
 %inst="NWste_2"; %by-state OR + WS, with flights & commute
 
@@ -149,16 +157,17 @@ inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst = "CActy_58";
 %inst = "CAtra_7038";
 
-% for inst = cellAllInst %it works!
-%     disp(pathIV(inst));
-% end
+ %for inst = cellAllInst(16:16) %default to no. 16, "NWste_2" 
+for inst = cellAllInst %run all instances found in instDir
+    disp(pathIV(inst));
+
 
 %% Read Problem Instance (initial values, populations, and travel matrix)
 % $IV_Path is a .CSV {id,AP_code,N_i,S_i,I_i,R_i,Name,LAT,LNG},
-tIVs = readtable(pathIV(inst));
+tabIVs = readtable(pathIV(inst));
 
-n = size(tIVs,1); %as many nodes as there are rows
-N = table2array(tIVs(:,3)); %the population vector
+n = size(tabIVs,1); %as many nodes as there are rows
+N = table2array(tabIVs(:,3)); %the population vector
 iN = arrayfun(@(x) 1/x,N); %inverse pops, for Hadamard division by N (--> A)
 
 NN = N / max(N); %normalized to max pop---for J, etc.
@@ -166,8 +175,8 @@ iNN = arrayfun(@(x) 1/x,NN); %inverse norm-pops, for Hadamard division (--> lax,
 %NN = ones(n,1); iNN = ones(n,1); %FAT CAVEAT: "egalitarian" pricing
 
 %STATE: initial conditions
-s0 = table2array(tIVs(:,4)) .* iN; %susceptibles at t=0, frac
-z0 = table2array(tIVs(:,5)) .* iN; %infecteds at t=0, frac
+s0 = table2array(tabIVs(:,4)) .* iN; %susceptibles at t=0, frac
+z0 = table2array(tabIVs(:,5)) .* iN; %infecteds at t=0, frac
 x0 = [s0;z0]; %overall state is [s;z]
 
 %COSTATE: terminal values from transversality conditions (column vectors!)
@@ -200,8 +209,12 @@ ppu = pchip(0:T,u); %fit with monotone Fritsch--Carlson splines
 delta = 1E-3; %min. relative error for norms of u,x,lax in stopping conditions
 stop_u = false; stop_x = false; stop_lax = false;%ensure the loop is entered
 ct = 0; %set the loop counter
-opts = odeset('InitialStep',1); %ensure the 1st step is at most 1 day long
+opts = odeset('InitialStep',1,'AbsTol',1e-9,'RelTol',1e-6); %ensure the 1st step is at most 1 day long
 
+%STATUS FLAGS
+flg.ct_within_limit = true;
+flg.objective_improved = true;
+%flg.within_time_limit = true;
 %% Sweep Log Setup
 % a `table`, to be written out as csv
 tablogNames = ["Iter","tcm","tdt",...
@@ -232,35 +245,31 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     %STATE
     ftx1 = @(t,x) futxp(ppval(ppu,t),t,x,beta,gamma,A);
    % disp('Run ode45 on IVP for state x---forwards from 0 to T')
-    %tic
-        x_sln = ode45(ftx1, [0 T], x(:,1),opts);
-        x = deval(x_sln, 0:T );
-    %toc 
+    x_sln = ode45(ftx1, [0 T], x(:,1),opts);
+    x = deval(x_sln, 0:T );
 
     %COSTATE
     gtx1 = @(t,lax) guxtlp(ppval(ppu,t), deval(x_sln, t) ...
         , t, lax, beta, gamma, A, r1, c, NN);
- %   disp('Run ode45 on IVP for costate lax---backwards from T to 0');
-   % tic
-        lax_sln = ode45(gtx1, [T 0], lax(:,end), opts);
-        lax = deval(lax_sln, 0:T);
-        if(boundlax)
-            lax = min(laxmax,max(lax,laxmin));
-        %    pplax = spline(0:T,lax);
-        end
-   % toc
+%   disp('Run ode45 on IVP for costate lax---backwards from T to 0');
+    lax_sln = ode45(gtx1, [T 0], lax(:,end), opts);
+    lax = deval(lax_sln, 0:T);
+    if(boundlax)
+        lax = min(laxmax,max(lax,laxmin));
+    %    pplax = spline(0:T,lax);
+    end
+
 
     %OBJECTIVE FUNCTION
     Lt1 = @(tArr) Ltxu(ppval(ppu,tArr),deval(x_sln,tArr),tArr,r1,r2,c,l,NN); %running cost
  %   disp('Compute the objective function J(u,x,T)');
-   % tic 
-        if (~killPsi)
-            PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
-        else
-            PsiT1 = 0; %no terminal cost, no transversality
-        end
-        J = PsiT1 + integral(Lt1,0,T); %the objective function
-   % toc 
+    if (~killPsi)
+        PsiT1 = PsiT(x(:,end),T,r1,NN,k); %terminal cost
+    else
+        PsiT1 = 0; %no terminal cost, no transversality
+    end
+    J = PsiT1 + integral(Lt1,0,T); %the objective function
+
     %STATISTICS
     
     %recovered at day T
@@ -270,12 +279,12 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     % infected at day T
     ZZ = sum(x(n+1:end,end) .* N);
     
+    %cumulative infected, including recovered, daily
+    %repmat(N, [1,numel([0:T])] ) - x(1:n,:).* N
+    
     %CONTROL
     utxla1 = @(tArr,xtArr,laxtArr) utxla(tArr,xtArr,laxtArr,umin,umax,beta,l,A,r2,iNN);
-%    disp('Compute the optimal control at points 0..T');
- %   tic; 
-        u1 = utxla1(0:T,x,lax); 
-  %  toc
+    u1 = utxla1(0:T,x,lax); 
     
     %UPDATE THE CONTROL
     %pick the update that better improves J??? 'd require to keep 2 last
@@ -317,16 +326,25 @@ while( ~stop_u || ~stop_x || ~stop_lax ) %while at least one rerr is > delta
     disp(tablog(1,:)); %show the current log
     
     if(ct > 500)
-        error("That probably wouldn't converge. Terminating.");
+        %error("That probably wouldn't converge. Terminating.");
+        disp("That probably wouldn't converge. Stopping the sweep.");
+        flg.ct_within_limit = false;
+        break;
     end
 end %next sweep iteration
 tSweepEnd = toc(tSweepStart);
 
 %% Evaluating the sweep results
 fprintf("Sweep done in "); disp(seconds(tSweepEnd));
-fprintf('\n J / JNull = %4.4f   improved by %4.4f\n',J / JNull, 1 - J/JNull);
-fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
-    ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
+% fprintf('\n J / JNull = %4.4f   improved by %4.4f\n',J / JNull, 1 - J/JNull);
+% fprintf('ZZNull = %d   ZZ = %d  cZRNull = %d cZR = %d\n', ... 
+%     ceil(ZZNull), ceil(ZZ), ceil(cZRNull), ceil(cZR) );
+
+if(J / JNull > 1)
+   % error("Didn't improve over initial guess. Terminating.");
+   disp("Didn't improve over initial guess. Setting failure flag");
+   flg.objective_improved = false;
+end
 
 %slice the state into (s,z,r) compartments
 s = x(1:n,:); z = x(n+1:end,:); r = (1 - s - z); %[s z r] for output
@@ -341,8 +359,26 @@ s11 = a1(s); z11 = a1(z); r11 = a1(r);
 s01 = a1(sNull); z01 = a1(zNull); r01 = a1(rNull);
 avgOut = [z01; z11; sum(u) / n]'; %[total zNull; total z; avg u]
 
-if(J / JNull > 1)
-    error("Didn't improve over initial guess. Terminating.");
+rowsummary = table;
+rowsummary.Inst = inst;
+rowsummary.Time = sum(tablog.tdt);
+rowsummary.JNull = round(tablog.J(end),4);
+rowsummary.JOpt = round(tablog.J(1),4);
+rowsummary.JImprPercent = round( 1 - rowsummary.JOpt / rowsummary.JNull ,4)*100;
+rowsummary.Iter = tablog.Iter(1);
+rowsummary.cZRNull = ceil(tablog.cZR(end));
+rowsummary.cZROpt = ceil(tablog.cZR(1));
+rowsummary.zPeakOpt = round(max(z11),4);
+rowsummary.zPeakNull = round(max(z01),4);
+rowsummary.success = flg.ct_within_limit && flg.objective_improved;
+
+disp(rowsummary);
+
+%add to the summary if it wasn't empty
+if(isempty(tabsummary))
+    tabsummary = rowsummary;
+else
+    tabsummary = [rowsummary; tabsummary];
 end
 
 %% Tabular output
@@ -358,10 +394,10 @@ cns_frac_u = horzcat(cns,cns_u); %combined frac with control
 cns_avgc = ["zNull_avg","z_avg","u_avg"];
  
 %construct the solution output tables
-otfrac = horzcat(tIVs,array2table([s z r u],'VariableNames', cns_frac_u) ); %adding the controls here
-otfrac0 = horzcat(tIVs,array2table([sNull zNull rNull],'VariableNames',cns));
-otabs = horzcat(tIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
-otabs0 = horzcat(tIVs,array2table([sNull zNull rNull] .* N,'VariableNames',upper(cns)));
+otfrac = horzcat(tabIVs,array2table([s z r u],'VariableNames', cns_frac_u) ); %adding the controls here
+otfrac0 = horzcat(tabIVs,array2table([sNull zNull rNull],'VariableNames',cns));
+otabs = horzcat(tabIVs,array2table([s z r] .* N,'VariableNames',upper(cns)));
+otabs0 = horzcat(tabIVs,array2table([sNull zNull rNull] .* N,'VariableNames',upper(cns)));
 %construct the average output table
 otabavgc = array2table(avgOut, 'VariableNames',cns_avgc);
 %note that the log table is already constructed
@@ -376,7 +412,10 @@ writetable(otabavgc,pathotavg(inst));
 %write the FBsweep iteration log table
 writetable(tablog,pathotlog(inst));
 
-%end %end this dumb instance name loop
+end %end this dumb instance name loop
+
+% write the summary
+writetable(tabsummary,pathotsummary);
 
 %% AUXILIARY FUNCTIONS
 heatmaplog=@(x) heatmap(x,'GridVisible','off','Colormap',flip(autumn),'ColorScaling','log');
