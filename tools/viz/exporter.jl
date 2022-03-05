@@ -25,10 +25,14 @@ timestamp() = Dates.format(Dates.now(), "yy-mm-dd-HMS")
 Export `spec` into a file named `prefix-timestamp.extension`
 If `extension` is `"pdf"` or `"csv"`, the spec will be plotted
 into the corresponding format. Otherwise a JSON VegaLite spec will be output.
+Write `extension` with a dot, like ".pdf"
 """
-function savePlot(prefix::AbstractString, spec::VegaLite.VLSpec, extension::AbstractString=".html")
-    path = joinpath(figDir, prefix * timestamp() * "." * extension)
-
+function savePlot(prefix::AbstractString, spec::VegaLite.VLSpec, extension::AbstractString=".html";add_timestamp::Bool=false)
+    if add_timestamp
+        path = joinpath(figDir, prefix * timestamp() * extension)
+    else  
+        path = joinpath(figDir, prefix * extension)
+    end
     save(path, spec)
 
     path

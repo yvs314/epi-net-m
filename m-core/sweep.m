@@ -39,15 +39,15 @@
 clear; close all; %chuck all variables, close all figures etc.
 %% Naming coventions setup
 %./data/by-tract is default for problem instances (IVs + travel matrix)
-%instDir="../data/by-tract"; default
-instDir="../data/inst-100K";
+instDir="../data/by-tract";%the default
+%instDir="../data/inst-100K";
 travDir="../data/by-tract";
 ofigDir = "../fig"; %write the output figures and tables here
 if(~exist(ofigDir,"dir"))
     mkdir(ofigDir); %make sure it exists
 end
-%otabDir = "../out"; %write the output tables here
-otabDir = "../out-100K"; %write the output tables here
+otabDir = "../out"; %write the output tables here
+%otabDir = "../out-pz-rerun"; %write the output tables here
 if(~exist(otabDir,"dir"))
     mkdir(otabDir); %make sure it exists
 end
@@ -157,7 +157,7 @@ cellAllInst = cellfun(@(s) extract(s,rpInst),cellAllIVs); %all instance names
 %inst = "CActy_58";
 %inst = "CAtra_7038";
 
- %for inst = cellAllInst(16:16) %default to no. 16, "NWste_2" 
+%for inst = cellAllInst(16:16) %default to no. 16, "NWste_2" 
 for inst = cellAllInst %run all instances found in instDir
     disp(pathIV(inst));
 

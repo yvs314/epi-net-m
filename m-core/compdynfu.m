@@ -372,10 +372,7 @@ end %end for the big instance-wise loop
 
 % write the solution output tables
 % writetable(otabs,pathotabs(inst));
-% %write the FBsweep iteration log table
 % writetable(tablog,pathotlog(inst));
-
-%end %end this dumb instance name loop
 
 %% AUXILIARY FUNCTIONS
 

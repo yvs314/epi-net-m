@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.4
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -7,8 +7,9 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
 end
@@ -25,7 +26,7 @@ to a different level will not be displayed.
 
 ---
 Authors: Kara Ignatenko, 2021;
-		 Yaroslav Salii, 2021
+		 Yaroslav Salii, 2021+
 
 
 Changelog:
@@ -57,7 +58,8 @@ begin
 	thisPath = splitpath(@__DIR__)
 	projRoot = thisPath[1:findfirst(isequal("epi-net-m"), thisPath)]
 	
-	const iDir = joinpath(projRoot...,"out") #here be the simulator's outputs
+	const iDir = joinpath(projRoot...,"out-100K") #the one-in-100K-threshold
+	#const iDir = joinpath(projRoot...,"out") #default location of the sim's out
 	
 end
 
@@ -127,11 +129,15 @@ end
 # ╔═╡ cc533197-dbe3-41b6-8478-64f82da52ba8
 md"Day selected: $day"
 
-# ╔═╡ 8398bb71-aa8e-42b6-b3e3-c08ca57ee5b0
+# ╔═╡ 695bbe03-6669-4642-b2dc-a8ebd8d69d48
 begin
 	plt_u = Specs.pltCtrlByCty(sol2,day)
 	UI.vegaEmbed(plt_u)
 end
+
+# ╔═╡ 47379524-ecea-41f5-a84a-34a4dbb9deaa
+#stopgap export interface for control effort figure
+#Exp.savePlot(slnName * "-100K_u_day$(day)_",plt_u,".pdf")
 
 # ╔═╡ a6a64f62-316a-48f5-bd5c-0eebff53022d
 begin
@@ -139,11 +145,19 @@ begin
 	UI.vegaEmbed(pltZ)
 end
 
+# ╔═╡ 683cbbd4-78a2-4603-bebc-437d1ef4711b
+#stopgap auto-export for infection numbers null-vs-opt plot
+#Exp.savePlot(slnName * "-100K_zz_day$(day)_",pltZ,".pdf")
+
 # ╔═╡ f4bf1143-c315-4521-b19b-06bf0373828a
 begin
 	pltAvgZandU = Specs.pltAvgInfdCtrl(long_avgc)
 	UI.vegaEmbed(pltAvgZandU)
 end
+
+# ╔═╡ a13fbf78-b08c-4a83-99d3-f479f2d516bc
+#stopgap auto-export for average z/zNull/u plot
+#Exp.savePlot(slnName * "-100K_avg_",pltAvgZandU,".pdf")
 
 # ╔═╡ 86ddda30-351d-41f6-94b2-4c84dea08448
 begin 
@@ -768,15 +782,18 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╔═╡ Cell order:
 # ╟─e4dca908-1016-11ec-0b7f-e9d01bd4e1b2
 # ╠═3389dc98-b90f-4c6a-8c96-31840b0516ea
-# ╟─e598c897-61bf-4bc2-91db-e225362f5606
+# ╠═e598c897-61bf-4bc2-91db-e225362f5606
 # ╠═0d909765-a87d-4a3c-bb9f-ff80e463992a
 # ╠═ced90367-407c-4b67-8276-68edc17933d3
 # ╠═6a2ca31f-716c-48f4-8e1a-70e3c033358b
 # ╠═cc533197-dbe3-41b6-8478-64f82da52ba8
 # ╠═dcabd381-1316-449b-9ebf-68410ee6e3fd
-# ╠═8398bb71-aa8e-42b6-b3e3-c08ca57ee5b0
+# ╠═695bbe03-6669-4642-b2dc-a8ebd8d69d48
+# ╠═47379524-ecea-41f5-a84a-34a4dbb9deaa
 # ╠═a6a64f62-316a-48f5-bd5c-0eebff53022d
-# ╟─f4bf1143-c315-4521-b19b-06bf0373828a
+# ╠═683cbbd4-78a2-4603-bebc-437d1ef4711b
+# ╠═f4bf1143-c315-4521-b19b-06bf0373828a
+# ╠═a13fbf78-b08c-4a83-99d3-f479f2d516bc
 # ╠═86ddda30-351d-41f6-94b2-4c84dea08448
 # ╠═bfd9753c-323a-4a82-b5e6-057e7519ed6c
 # ╠═ff5a5927-6bc6-4b05-b0e8-e0bfdc623440
