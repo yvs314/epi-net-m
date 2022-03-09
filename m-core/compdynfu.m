@@ -22,6 +22,7 @@
 % 2022-03-01 v.0.1.1 ignore isolated, sterile nodes in thresholds (set 0)
 %            v.0.1.2 abs + rel thresholding ( > nrm=10^-5 && > 1 person)
 % 2022-03-02 v.0.2 new IVs from start threshold at selected node
+% 2022-03-09 v.0.3 threshold IVs start at the min. time + steady state out
 %% TODO
 %% Clear the workspace
 clear; close all; %chuck all variables, close all figures etc.
@@ -32,7 +33,7 @@ ofigDir = "../fig"; %write the output figures and tables here
 if(~exist(ofigDir,"dir"))
     mkdir(ofigDir); %make sure it exists
 end
-otabDir = "../data/inst-100K"; %write the output tables here
+otabDir = "../data/inst-100K-m1"; %write the output tables here
 if(~exist(otabDir,"dir"))
     mkdir(otabDir); %make sure it exists
 end
@@ -150,7 +151,7 @@ inst="NWcty_75"; %by-county OR + WS, with flights & commute
 %inst = "CAtra_7038";
 
 
-for inst = cellAllInst(16:16) %normally "NWste_2"
+for inst = cellAllInst(15:15) %normally, no.16 is "NWste_2"
     disp(pathIV(inst));
 %end
 
@@ -186,22 +187,8 @@ A = diag(iN)* (A - diag(A) + diag(N));
 %A = ones(n,n); %dumber debug: homogeneous mixing
 
 %% Population Stats
- Nq20 = quantile(N,20); Nq10 = quantile(N,10); Nq4 = quantile(N,4);
-% q1arr = [Nq20(1), Nq10(1),Nq4(1)];
-% qNumarr = [20, 10, 4];
-% tabpopNames = ["q20:1","#q20:1","%q20:1","q10:1","#q10:1","%q10:1","q4:1","#q4:1","%q4:1"];
-% tabpopTypes = repmat(["double","uint16","double"], [1 floor(size(tabpopNames,2) / 3)]);
-% tabpopSize = [1 size(tabpopNames,2)];
-% 
-% tabpop = table('Size',tabpopSize,'VariableTypes',tabpopTypes,'VariableNames',tabpopNames);
-% mkq1name = @(q) "Nq"+string(q)+"(1)";
-% mkq1stat = @(Q) Q+1;
-
-%sort(N(N < Nq10(1)))
-
-%find Redding AP (Calif.) in IVs
-% find(contains(tIVs.Name, 'RDD'))
-
+ %Nq20 = quantile(N,20);  Nq4 = quantile(N,4); 
+ Nq10 = quantile(N,10);
 
 
 %% Run Initialization
@@ -294,7 +281,7 @@ fndlastabovethr2 = @(arrRel,node,thr,arrAbs) ...
     find(arrRel(node,:) > thr & arrAbs(node,:) > 1 ,1,'last');
 flanrm2 = @(node) maybevalue(fndlastabovethr2(z,node,nrm,Z),double(0));
 
-%gotta exclude the IVs and isolated nodes
+%search in all nodes (thresholds are in the functions)
 nodeSet = 1:size(Z,1);
 
 %find days when infected first go above and first go below the threshold
@@ -313,7 +300,6 @@ tabdesc.id = tabIVs.id;
 tabdesc.pop = N;
 tabdesc.peak = arrPeakVal';
 tabdesc.peakFrac = arrPeakVal' ./ N;
-%tabdesc.peakThresh = (arrPeakVal' ./ N) .* (1/nrm);
 tabdesc.start  = arrFirstAbove2';
 tabdesc.peakDay = arrPeakDay'; 
 tabdesc.end = arrLastAbove2';
@@ -322,7 +308,23 @@ tabdesc.Name = tabIVs.Name;
 disp(tabdesc);
 
 
+%% Determine the thresholds and peak in the *overall* model (as if it was one huge node)
+ovrPop = sum(N); Z_ovr = sum(Z,1); z_ovr = Z_ovr ./ ovrPop;
+% get the overall thresholds (when summed to single-node model)
+ovrFirstAbove = find(z_ovr > nrm & Z_ovr > 1,1,'first');
+ovrLastAbove = find(z_ovr > nrm & Z_ovr > 1,1,'last');
+% get the overall peak
+[ovrPeakVal, ovrPeakDay] = max(Z_ovr); 
+ovrPeakFrac = z_ovr(ovrPeakDay);
+cZR_ovr = sum(cZR(:,end));
+ovrAffectedFrac = cZR_ovr / ovrPop;
 
+tabovrNames = ["ovrStart","ovrPeakDay","ovrEnd","ovrPeak","ovrPeakFrac","ovrPop","ovr_cZR","ovr_cZR_%",];
+tabovrTypes = ["uint32","uint32","uint32","double","double","uint32","uint32","double"];
+tabovrSize = [1 size(tabovrNames,2)];
+tabovr = table('Size',tabovrSize,'VariableType',tabovrTypes,'VariableNames',tabovrNames);
+tabovr(1,:) = {ovrFirstAbove,ovrPeakDay,ovrLastAbove,round(ovrPeakVal,4),round(ovrPeakFrac,4),ovrPop,ceil(cZR_ovr),round(ovrAffectedFrac,4)*100};
+% 
 %% Determine the start day
 % pick the *start* day of a *meaningful* node 
 % = above Nq10(1) if min(N) < 4000 (arbitrary)
@@ -335,13 +337,15 @@ if (min(N) < 4000)
     popThreshold = Nq10(1); %first decile
 end
 
+% ensure early starts go first
+tabdescByStart = sortrows(tabdesc,{'start'},{'ascend'});
 %select the benchmark node
-ixbNode = find(tabdesc.start > 40 & tabdesc.pop > popThreshold,1);
+ixbNode = find(tabdescByStart.start > 40 & tabdescByStart.pop > popThreshold,1);
 % ixbNode is a node's index; now copy its record and add the instance name
-bNodeEntry = tabdesc(ixbNode,:);
+bNodeEntry = tabdescByStart(ixbNode,:);
 rowsummary = addvars(bNodeEntry,inst,'NewVariableNames',{'Inst'},'Before','id');
-
-
+%add the overall info as well
+rowsummary = [rowsummary,tabovr(1,:)]; %
 disp("Fixing epidemic start at start day of the following node:");
 disp(rowsummary);%disp(tabdesc(ixbNode,:));
 
